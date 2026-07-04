@@ -79,7 +79,7 @@ cargo install --git https://github.com/dkorolev/beecast   # from git
 cargo install --path .                                     # from a checkout
 ```
 
-The published crate is the Rust CLI alone — sources, the vendored player, and the schema; the [SeeCast](seecast/README.md) annotator lives in the repo only.
+The published crate is the Rust CLI alone — sources, the vendored player, and the schema; the [SeeCast](seecast/README.md) annotator lives in the repo only. Its install is a one-liner too (single-file, stdlib-only Python): `ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast`.
 
 ## Building from source
 
