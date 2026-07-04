@@ -1,0 +1,8 @@
+{
+  "title": "Sample session",
+  "summary": "Echoes a greeting, then runs a build that passes.",
+  "chapters": [
+    { "t": 0, "title": "Greeting" },
+    { "t": 1.2, "title": "The build" }
+  ]
+}
