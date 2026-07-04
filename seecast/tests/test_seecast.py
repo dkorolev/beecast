@@ -1,13 +1,19 @@
 """Unit tests for the seecast annotator: transcript rendering (v2 absolute vs v3 relative
-timestamps), ANSI stripping, schema validation, and the annotate flow with a stubbed model.
-Run with: python3 -m unittest discover -s tests"""
+timestamps), ANSI stripping, schema validation, the annotate flow with a stubbed model,
+and the CLI contract (single-key JSON documents, exit codes, signal discipline).
+Run from the repo root with: python3 -m unittest discover -s seecast/tests"""
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
+import signal
+import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "..", ".skills", "seecast", "scripts", "seecast.py")
 spec = importlib.util.spec_from_file_location("seecast", SCRIPT)
@@ -145,6 +151,103 @@ class Annotate(unittest.TestCase):
                 f.write(V2)
             with self.assertRaises(ValueError):
                 seecast.annotate(cast, run=bad_stub)
+
+
+class CliContract(unittest.TestCase):
+    """The §2 machine-mode contract. `io.StringIO` is not a TTY, so redirecting stdout puts
+    `main` in machine mode; the SIGPIPE path needs a real process and gets a subprocess."""
+
+    def run_main(self, argv):
+        """Run main(argv) capturing both streams; returns (exit_code, stdout, stderr)."""
+        out, err, code = io.StringIO(), io.StringIO(), 0
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                seecast.main(argv)
+            except SystemExit as e:
+                code = e.code or 0
+        return code, out.getvalue(), err.getvalue()
+
+    def test_version_is_a_single_key_document_and_offline(self):
+        code, out, err = self.run_main(["--version"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"Version": {"version": seecast.VERSION}})
+        self.assertEqual(err, "", "machine-mode stderr stays quiet")
+
+    def test_usage_error_is_stage_usage_json_with_exit_2(self):
+        code, out, err = self.run_main([])
+        self.assertEqual(code, 2)
+        doc = json.loads(out)
+        self.assertIn("required", doc["Error"]["message"])
+        self.assertEqual(doc["Error"]["stage"], "usage")
+
+    def test_request_error_is_stage_request_json_with_exit_1(self):
+        code, out, err = self.run_main(["--validate", os.path.join(tempfile.gettempdir(), "no-such-file.json")])
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(out)["Error"]["stage"], "request")
+
+    def test_validate_success_is_a_valid_document(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = os.path.join(tmp, "ok.meta.json")
+            with open(sidecar, "w") as f:
+                json.dump({"title": "T", "chapters": [{"t": 0, "title": "A"}]}, f)
+            code, out, err = self.run_main(["--validate", sidecar])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"Valid": {"path": sidecar}})
+
+    def test_annotate_wraps_the_write_in_an_annotated_document(self):
+        reply = '{"title": "T", "summary": "S.", "chapters": [{"t": 0, "title": "A"}]}'
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V3)
+            stub = lambda path, model, timeout: seecast.validate_meta(json.loads(reply), generated=True)
+            with unittest.mock.patch.object(seecast, "annotate", stub):
+                code, out, err = self.run_main([cast])
+            doc = json.loads(out)
+            self.assertEqual(code, 0)
+            self.assertEqual(doc["Annotated"]["output"], os.path.join(tmp, "rec.meta.json"))
+            self.assertEqual(doc["Annotated"]["chapters"], 1)
+            self.assertEqual(doc["Annotated"]["meta"]["title"], "T")
+            with open(doc["Annotated"]["output"]) as f:
+                self.assertEqual(json.load(f)["title"], "T", "the sidecar landed on disk")
+            self.assertEqual(err, "", "machine-mode stderr stays quiet")
+
+    def test_dash_output_streams_the_bare_sidecar(self):
+        reply = {"title": "T", "summary": "S.", "chapters": [{"t": 0.0, "title": "A"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V3)
+            with unittest.mock.patch.object(seecast, "annotate", lambda *a, **k: reply):
+                code, out, err = self.run_main([cast, "-o", "-"])
+            self.assertEqual(json.loads(out), reply, "explicit stream mode: no envelope")
+            self.assertFalse(os.path.exists(os.path.join(tmp, "rec.meta.json")), "stdout only")
+
+    def test_keyboard_interrupt_exits_130_without_a_traceback(self):
+        with unittest.mock.patch.object(seecast, "main", side_effect=KeyboardInterrupt):
+            with self.assertRaises(SystemExit) as ctx:
+                seecast.entry()
+        self.assertEqual(ctx.exception.code, 130)
+
+    @unittest.skipUnless(hasattr(signal, "SIGPIPE"), "SIGPIPE is a Unix concept")
+    def test_broken_pipe_dies_quietly(self):
+        # The read end of the child's stdout pipe is closed before it ever writes, so its
+        # first write raises SIGPIPE deterministically: a quiet signal death, no traceback.
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V2)
+            read_end, write_end = os.pipe()
+            os.close(read_end)
+            proc = subprocess.Popen(
+                [sys.executable, os.path.abspath(SCRIPT), "--transcript", cast],
+                stdout=write_end,
+                stderr=subprocess.PIPE,
+            )
+            os.close(write_end)
+            _, err = proc.communicate()
+        self.assertEqual(proc.returncode, -signal.SIGPIPE, "killed by SIGPIPE, not a Python error")
+        self.assertNotIn(b"Traceback", err)
 
 
 if __name__ == "__main__":

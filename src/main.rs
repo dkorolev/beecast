@@ -2,10 +2,15 @@
 //! optional metadata sidecar into one fully self-contained `.html` player page.
 //!
 //! CLI behavior follows ENG-PRINCIPLES §2: data on stdout and everything else on stderr;
-//! human-friendly output at a TTY and two-space-indented single-key JSON otherwise
-//! (successes as `{ "Ok": … }`, errors as `{ "Error": … }`); canonical syntax is what
-//! `help` shows, and abbreviated invocations are resolved for humans but bounced back
-//! with the canonical spelling for machines. Exit codes: 0 ok, 1 failure, 2 usage.
+//! human-friendly output at a TTY and two-space-indented single-key JSON otherwise, with
+//! request-specific variant names (`{ "Built": … }`, `{ "Version": … }`) and errors as
+//! `{ "Error": { message, stage } }`. In machine mode stderr stays quiet — diagnostics
+//! ride inside the JSON document, and warnings land in BOTH channels. Canonical syntax is
+//! what `help` shows; abbreviated invocations are resolved for humans but bounced back
+//! with the canonical spelling for machines. Exit codes: 0 ok, 1 failure, 2 usage,
+//! 130 interrupted (SIGINT); a broken pipe ends the program quietly. All stdout data goes
+//! through [`emit`], which treats a broken pipe (`beecast schema | head`) as a clean exit
+//! rather than the panic the `print!` macros would raise — so no `libc`, no `unsafe`.
 
 mod cast;
 mod meta;
@@ -62,9 +67,12 @@ fn help_topic(topic: &str) -> Option<String> {
     ),
     "exitcodes" => Some(
       "Exit codes:\n\
-       \x20 0  success\n\
-       \x20 1  failure (unreadable input, invalid cast or metadata, write error)\n\
-       \x20 2  usage (unknown command or flag, missing argument, non-canonical machine invocation)\n"
+       \x20 0    success\n\
+       \x20 1    failure (unreadable input, invalid cast or metadata, write error)\n\
+       \x20 2    usage (unknown command or flag, missing argument, non-canonical machine invocation)\n\
+       \x20 130  interrupted (Ctrl+C / SIGINT)\n\
+       A broken pipe (e.g. `beecast schema | head`) ends the program quietly, per SIGPIPE convention.\n\
+       Machine-mode errors also carry a `stage` field (`usage` or `request`) for scripts to branch on.\n"
         .into(),
     ),
     _ => None,
@@ -89,11 +97,11 @@ fn main() -> ExitCode {
   match dispatch(&args, machine) {
     Ok(()) => ExitCode::SUCCESS,
     Err(Fail::Usage(msg)) => {
-      report_error(&msg, machine, true);
+      report_error(&msg, machine, "usage");
       ExitCode::from(2)
     }
     Err(Fail::Run(e)) => {
-      report_error(&format!("{e:#}"), machine, false);
+      report_error(&format!("{e:#}"), machine, "request");
       ExitCode::FAILURE
     }
   }
@@ -122,18 +130,18 @@ fn dispatch(args: &[String], machine: bool) -> Result<(), Fail> {
     None | Some("help") | Some("--help") | Some("-h") => {
       match args.get(1) {
         Some(topic) => match help_topic(topic) {
-          Some(text) => print!("{text}"),
+          Some(text) => emit(&text),
           None => return Err(Usage(format!("unknown help topic `{topic}` (topics: build, schema, exitcodes)")).into()),
         },
-        None => print!("{}", help()),
+        None => emit(&help()),
       }
       Ok(())
     }
     Some("version") | Some("--version") | Some("-V") => {
       if machine {
-        println!("{}", json_ok(&serde_json::json!({ "version": VERSION })));
+        emit(&format!("{}\n", json_doc("Version", serde_json::json!({ "version": VERSION }))));
       } else {
-        println!("beecast {VERSION}");
+        emit(&format!("beecast {VERSION}\n"));
       }
       Ok(())
     }
@@ -150,7 +158,13 @@ fn dispatch(args: &[String], machine: bool) -> Result<(), Fail> {
       if machine {
         return Err(Usage(format!("canonical syntax required for machines: beecast build {castish} [...]")).into());
       }
-      eprintln!("note: resolved to the canonical `beecast build {castish}`");
+      // A nudge, not a warning: dim/grey when color is on (§2), so it reads as a hint.
+      let color = std::env::var_os("NO_COLOR").is_none() && std::io::stderr().is_terminal();
+      if color {
+        eprintln!("\x1b[2mnote: resolved to the canonical `beecast build {castish}`\x1b[0m");
+      } else {
+        eprintln!("note: resolved to the canonical `beecast build {castish}`");
+      }
       Ok(run_build(parse_build_args(args)?, machine)?)
     }
     Some(other) => Err(Usage(format!("unknown command `{other}` — run `beecast help`")).into()),
@@ -191,15 +205,24 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
     cast::inspect(&ndjson).with_context(|| format!("`{}` is not a playable recording", cast_path.display()))?;
 
   let (meta, meta_source) = load_meta(&args)?;
-  if let Some(src) = &meta_source {
-    eprintln!("using metadata from `{}`", src.display());
+  // The sidecar-discovery narration is a diagnostic: stderr for a human, a field in the
+  // JSON document for a machine (§2: machine-mode stderr stays quiet).
+  if !machine {
+    if let Some(src) = &meta_source {
+      eprintln!("using metadata from `{}`", src.display());
+    }
   }
   // A chapter past the end still renders (the player clamps the seek), but it almost
   // certainly means the sidecar belongs to a different recording — warn, don't fail.
+  // Warnings land in BOTH channels (§2): stderr now, and the JSON document below.
+  let mut warnings: Vec<String> = Vec::new();
   if let Some(duration) = info.duration {
     for c in meta.chapters.iter().filter(|c| c.t > duration) {
-      eprintln!("warning: chapter `{}` at t={} is past the end of the recording ({duration:.1}s)", c.title, c.t);
+      warnings.push(format!("chapter `{}` at t={} is past the end of the recording ({duration:.1}s)", c.title, c.t));
     }
+  }
+  for w in &warnings {
+    eprintln!("warning: {w}");
   }
 
   let fallback_title = cast_path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or("cast".into());
@@ -207,30 +230,39 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
 
   let to_stdout = args.output.as_deref() == Some(Path::new("-"));
   if to_stdout {
-    std::io::stdout().write_all(html.as_bytes()).context("writing HTML to stdout")?;
-    eprintln!("asciicast v{}, {} bytes of HTML to stdout", info.version, html.len());
+    // `-o -` is the explicit "stream me the document" mode: the page itself is the data,
+    // so there is no JSON envelope — the exit code is the machine's success signal.
+    emit(&html);
+    if !machine {
+      eprintln!("asciicast v{}, {} bytes of HTML to stdout", info.version, html.len());
+    }
     return Ok(());
   }
   let out_path = args.output.unwrap_or_else(|| args.cast.with_extension("html"));
   std::fs::write(&out_path, &html).with_context(|| format!("cannot write `{}`", out_path.display()))?;
   if machine {
-    println!(
-      "{}",
-      json_ok(&serde_json::json!({
-        "output": out_path.to_string_lossy(),
-        "bytes": html.len(),
-        "cast_version": info.version,
-        "chapters": meta.chapters.len(),
-      }))
-    );
+    emit(&format!(
+      "{}\n",
+      json_doc(
+        "Built",
+        serde_json::json!({
+          "output": out_path.to_string_lossy(),
+          "bytes": html.len(),
+          "cast_version": info.version,
+          "chapters": meta.chapters.len(),
+          "meta": meta_source.as_ref().map(|p| p.to_string_lossy()),
+          "warnings": warnings,
+        })
+      )
+    ));
   } else {
-    println!(
-      "wrote {} ({} KB, asciicast v{}, {} chapters)",
+    emit(&format!(
+      "wrote {} ({} KB, asciicast v{}, {} chapters)\n",
       out_path.display(),
       html.len() / 1024,
       info.version,
       meta.chapters.len()
-    );
+    ));
   }
   Ok(())
 }
@@ -250,18 +282,36 @@ fn load_meta(args: &BuildArgs) -> anyhow::Result<(meta::CastMeta, Option<PathBuf
   Ok((parsed, Some(path)))
 }
 
-/// Two-space-indented single-key success envelope, per the house JSON conventions.
-fn json_ok(payload: &serde_json::Value) -> String {
-  serde_json::to_string_pretty(&serde_json::json!({ "Ok": payload })).expect("json_ok serializes")
+/// Write `s` to stdout, treating a broken pipe as a clean exit rather than a panic (§2:
+/// `beecast schema | head` is not an error). Rust leaves SIGPIPE ignored, so a reader that
+/// hangs up surfaces here as a `BrokenPipe` error instead of killing the process — we honor
+/// it by exiting 0 with no traceback, which is why the CLI needs neither `libc` nor
+/// `unsafe`. Any other write failure (e.g. a full disk on a redirect) is a genuine error:
+/// reported on stderr, exit 1.
+fn emit(s: &str) {
+  let mut out = std::io::stdout();
+  if let Err(e) = out.write_all(s.as_bytes()).and_then(|()| out.flush()) {
+    if e.kind() == std::io::ErrorKind::BrokenPipe {
+      std::process::exit(0);
+    }
+    eprintln!("error: writing to stdout: {e}");
+    std::process::exit(1);
+  }
+}
+
+/// Two-space-indented single-key union document (§2): the variant name is request-specific
+/// (`Built`, `Version`, `Error`), so scripts branch on the top-level key.
+fn json_doc(variant: &str, payload: serde_json::Value) -> String {
+  serde_json::to_string_pretty(&serde_json::json!({ variant: payload })).expect("json_doc serializes")
 }
 
 /// Errors mirror regular output: plain text (colored at a TTY unless NO_COLOR) on stderr
-/// for humans, `{ "Error": { … } }` on stdout for machines — a harness always sees clean
-/// JSON on the data stream.
-fn report_error(message: &str, machine: bool, usage: bool) {
+/// for humans, `{ "Error": { message, stage } }` on stdout for machines — a harness always
+/// sees clean JSON on the data stream. `stage` (`"usage"` | `"request"`) mirrors the exit
+/// code so scripts branch without decoding prose.
+fn report_error(message: &str, machine: bool, stage: &str) {
   if machine {
-    let e = serde_json::json!({ "Error": { "message": message, "usage": usage } });
-    println!("{}", serde_json::to_string_pretty(&e).expect("error envelope serializes"));
+    emit(&format!("{}\n", json_doc("Error", serde_json::json!({ "message": message, "stage": stage }))));
   } else {
     let color = std::env::var_os("NO_COLOR").is_none() && std::io::stderr().is_terminal();
     if color {

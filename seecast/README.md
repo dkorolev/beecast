@@ -1,6 +1,6 @@
 # SeeCast
 
-**SeeCast** watches an [asciinema](https://asciinema.org) `.cast` recording so you don't have to: it generates the `{ title, summary, chapters }` metadata sidecar that [BeeCast](../README.md) renders — a one-line title, a short summary, and timekeyed chapters, YouTube-style. Annotation runs on `cursor-agent` with the **Composer Fast** model (`composer-2.5-fast`): fast and cheap, and chapter titling is squarely within its reach.
+**SeeCast** watches an [asciinema](https://asciinema.org) `.cast` recording so you don't have to: it generates the `{ title, summary, chapters }` metadata sidecar that [BeeCast](../README.md) — this repo's Rust renderer — turns into a player page: a one-line title, a short summary, and timekeyed chapters, YouTube-style. Annotation runs on `cursor-agent` with the **Composer Fast** model (`composer-2.5-fast`): fast and cheap, and chapter titling is squarely within its reach.
 
 ```
 ./seecast demo.cast        # → demo.meta.json, next to the recording
@@ -8,7 +8,7 @@
 
 ## What it produces
 
-A sidecar in the shape specified by [`SCHEMA.md`](../SCHEMA.md) (formally: [`schema/beecast-meta.schema.json`](../schema/beecast-meta.schema.json)):
+A sidecar in the shape specified by [`SCHEMA.md`](../SCHEMA.md) (formally: [`schema/beecast-meta.schema.json`](../schema/beecast-meta.schema.json) — one copy, kept in sync with the Rust types in [`src/meta.rs`](../src/meta.rs), the source of truth):
 
 ```json
 {
@@ -31,12 +31,25 @@ The timekey `t` is fractional seconds; chapters are strictly ascending and the f
 ```
 ./seecast <recording.cast> [-o <meta.json>] [--model composer-2.5-fast] [--timeout 180]
 ./seecast --transcript <recording.cast>     # print the compact transcript and stop
+./seecast --validate <meta.json>            # validate a sidecar against the schema and stop
+./seecast --version                         # works offline
 ```
 
 - Reads asciicast **v2 and v3** (v3 event times are relative and get accumulated).
 - Renders the recording into a compact, timestamped, ANSI-stripped transcript, deduplicated and downsampled — TUI redraws don't flood the prompt.
 - Calls `cursor-agent -p` headless; a hard watchdog kills a hung call (default 180 s), and liveness ticks go to stderr every ~10 s so callers can tell it's alive.
-- Writes the validated sidecar next to the recording (`demo.cast` → `demo.meta.json`) and echoes the JSON to stdout. Diagnostics go to stderr; errors are `{ "Error": { … } }` JSON when stdout is not a TTY.
+- Writes the validated sidecar next to the recording (`demo.cast` → `demo.meta.json`).
+- Human at a TTY gets human-readable output; piped/captured invocations get a two-space-indented single-key JSON document with a request-specific variant: `{ "Annotated": { output, chapters, meta } }`, `{ "Valid": … }`, `{ "Version": … }`, and on failure `{ "Error": { message, stage } }` where `stage` is `usage` or `request`. The explicit stream modes (`--transcript`, `-o -`) emit the bare document — it *is* the data.
+- Exit codes: `0` success, `1` failure, `2` usage, `130` interrupted; a broken pipe ends the program quietly.
+
+## Not this tool's job
+
+| Absent on purpose               | Where that job IS done                                 |
+| ------------------------------- | ------------------------------------------------------ |
+| Recording a terminal session    | `asciinema rec` (or any asciicast v2/v3 producer)      |
+| Rendering the player page       | [BeeCast](../README.md), this repo's Rust renderer     |
+| Hand-editing a sidecar          | Any editor — then `./seecast --validate` checks it     |
+| Hosting the annotation model    | `cursor-agent` (Cursor CLI) with its own credentials   |
 
 ## The `scsh` skill
 
@@ -51,8 +64,8 @@ The skill requires `CAST` (the repo-relative path of the recording) and writes t
 
 ## Testing
 
-`python3 -m unittest discover -s tests` — transcript rendering, v2/v3 time handling, ANSI stripping, and reply validation are covered with a stubbed model; the cursor-agent path is exercised for real by running the script on an actual recording.
+`python3 -m unittest discover -s seecast/tests` (from the repo root) — transcript rendering, v2/v3 time handling, ANSI stripping, reply validation, and the CLI contract are covered with a stubbed model; the cursor-agent path is exercised for real by running the script on an actual recording.
 
 ## License
 
-MIT.
+MIT, per the repo's root [LICENSE](../LICENSE).

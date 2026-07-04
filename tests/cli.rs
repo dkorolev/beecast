@@ -29,12 +29,14 @@ fn build_discovers_the_sidecar_and_reports_json_ok() {
   let out = beecast(&["build", "sample.cast"], &dir);
   assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
 
-  // Machine mode (stdout is a pipe here): a single-key `Ok` envelope on stdout.
+  // Machine mode (stdout is a pipe here): a single-key, request-specific `Built` document.
   let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("clean JSON on stdout");
-  assert_eq!(v["Ok"]["cast_version"], 3);
-  assert_eq!(v["Ok"]["chapters"], 2);
-  // The implicit `sample.meta.json` discovery is narrated on stderr, not stdout.
-  assert!(String::from_utf8_lossy(&out.stderr).contains("sample.meta.json"));
+  assert_eq!(v["Built"]["cast_version"], 3);
+  assert_eq!(v["Built"]["chapters"], 2);
+  // The implicit sidecar discovery rides inside the document; machine-mode stderr is quiet.
+  assert!(v["Built"]["meta"].as_str().unwrap().contains("sample.meta.json"));
+  assert_eq!(v["Built"]["warnings"], serde_json::json!([]));
+  assert!(out.stderr.is_empty(), "machine-mode stderr stays quiet, got: {}", String::from_utf8_lossy(&out.stderr));
 
   let html = std::fs::read_to_string(dir.join("sample.html")).unwrap();
   assert!(html.contains("<title>Sample session</title>"));
@@ -64,7 +66,27 @@ fn invalid_metadata_fails_with_a_json_error_and_exit_1() {
   assert_eq!(out.status.code(), Some(1));
   let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("error is clean JSON on stdout");
   assert!(v["Error"]["message"].as_str().unwrap().contains("first chapter must start at t = 0"));
+  assert_eq!(v["Error"]["stage"], "request", "run failures are stage=request");
   assert!(!dir.join("s.html").exists(), "no output written on failure");
+  let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn chapter_past_the_end_warns_in_both_channels() {
+  let dir = tempdir("warn");
+  std::fs::copy(fixture("sample.cast"), dir.join("s.cast")).unwrap();
+  std::fs::write(
+    dir.join("s.meta.json"),
+    r#"{ "chapters": [{ "t": 0, "title": "Start" }, { "t": 9999, "title": "Way past" }] }"#,
+  )
+  .unwrap();
+  let out = beecast(&["build", "s.cast"], &dir);
+  assert!(out.status.success(), "a stale sidecar warns, it does not fail");
+  let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+  let warning = v["Built"]["warnings"][0].as_str().expect("warning folded into the JSON document");
+  assert!(warning.contains("past the end"), "got: {warning}");
+  // …and on stderr too — a warning only in the JSON is invisible to humans.
+  assert!(String::from_utf8_lossy(&out.stderr).contains("past the end"));
   let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -88,7 +110,34 @@ fn machine_invocations_must_use_the_canonical_command() {
   assert_eq!(out.status.code(), Some(2));
   let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
   assert!(v["Error"]["message"].as_str().unwrap().contains("beecast build s.cast"));
+  assert_eq!(v["Error"]["stage"], "usage", "wrong invocations are stage=usage");
   assert!(!dir.join("s.html").exists());
+  let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Piping into `head` must end the program quietly (§2): a broken pipe is a clean exit,
+/// never a panic. The read end of the child's stdout is closed before it writes, so the
+/// 6 MB HTML stream hits `BrokenPipe`; `emit` exits 0 with no traceback (no `libc`, no
+/// signal death — pure std). This asserts the clean-exit contract without depending on
+/// how the OS would otherwise deliver SIGPIPE.
+#[cfg(unix)]
+#[test]
+fn broken_pipe_dies_quietly_without_a_panic() {
+  use std::process::Stdio;
+  let dir = tempdir("sigpipe");
+  std::fs::copy(fixture("sample.cast"), dir.join("s.cast")).unwrap();
+  let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_beecast"))
+    .args(["build", "s.cast", "-o", "-"])
+    .current_dir(&dir)
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("binary spawns");
+  drop(child.stdout.take()); // close the pipe's read end before the child writes
+  let out = child.wait_with_output().unwrap();
+  assert_eq!(out.status.code(), Some(0), "a broken pipe is a clean exit, status: {:?}", out.status);
+  let stderr = String::from_utf8_lossy(&out.stderr);
+  assert!(!stderr.contains("panicked"), "no traceback on a broken pipe, got: {stderr}");
   let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -110,6 +159,6 @@ fn help_and_version_work() {
   assert!(String::from_utf8_lossy(&help.stdout).contains("build <recording.cast>"));
   let ver = beecast(&["version"], &dir);
   let v: serde_json::Value = serde_json::from_slice(&ver.stdout).unwrap();
-  assert_eq!(v["Ok"]["version"], env!("CARGO_PKG_VERSION"));
+  assert_eq!(v["Version"]["version"], env!("CARGO_PKG_VERSION"));
   let _ = std::fs::remove_dir_all(&dir);
 }

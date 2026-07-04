@@ -7,25 +7,32 @@ Renders the recording into a compact timestamped transcript, hands it to `cursor
 and writes the sidecar next to the recording: demo.cast -> demo.meta.json.
 
 Stdlib-only and single-file on purpose: this exact file is what the scsh skill bundles,
-so it must run anywhere python3 exists. Tested by tests/test_seecast.py (transcript,
-v2/v3 timing, ANSI stripping, validation, and the annotate flow with a stubbed model);
-the cursor-agent path is exercised for real by running it on an actual recording.
+so it must run anywhere python3 exists. Tested by seecast/tests/test_seecast.py
+(transcript, v2/v3 timing, ANSI stripping, validation, the annotate flow with a stubbed
+model, and the CLI contract); the cursor-agent path is exercised for real by running it
+on an actual recording.
 
-CLI contract (ENG-PRINCIPLES paragraph 2): data -> stdout, diagnostics -> stderr; errors are
-`{ "Error": { ... } }` two-space JSON on stdout when stdout is not a TTY. Exit codes:
-0 ok, 1 failure, 2 usage. External-call discipline (paragraph 9): a liveness tick on stderr
-every ~10 seconds while cursor-agent runs, and a hard watchdog (default 180 s) kills it.
+CLI contract (ENG-PRINCIPLES paragraph 2): data -> stdout, diagnostics -> stderr. When stdout
+is not a TTY the result is a two-space-indented single-key JSON document with a
+request-specific variant -- `{ "Annotated": ... }`, `{ "Valid": ... }`, `{ "Version": ... }`,
+or `{ "Error": { message, stage } }` where `stage` is `usage` or `request` -- except in the
+explicit stream modes (`--transcript`, `-o -`), where the document itself is the data.
+Exit codes: 0 ok, 1 failure, 2 usage, 130 interrupted (Ctrl+C); a broken pipe ends the
+program quietly. External-call discipline (paragraph 9): a liveness tick on stderr every
+~10 seconds while cursor-agent runs, and a hard watchdog (default 180 s) kills it.
 """
 
 import argparse
 import json
 import math
 import os
+import signal
 import subprocess
 import sys
 import tempfile
 import time
 
+VERSION = "0.1.0"  # what build is this? -- answerable offline, always
 DEFAULT_MODEL = "composer-2.5-fast"  # Composer Fast: quick and cheap, plenty for titling.
 DEFAULT_TIMEOUT = 180  # seconds; annotation is a known-fast job, well under the 5-min default cap
 LIVENESS_PERIOD = 10  # seconds between "still waiting" ticks on stderr
@@ -243,25 +250,47 @@ def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cu
     return validate_meta(extract_json(reply), generated=True)
 
 
-def fail(message, code=1):
-    """Report an error per the house CLI rules and exit: human text on stderr at a TTY,
-    a single-key `{ "Error": ... }` JSON envelope on stdout otherwise."""
+def fail(message, code=1, stage="request"):
+    """Report an error per the house CLI rules and exit: human text on stderr at a TTY, a
+    single-key `{ "Error": { message, stage } }` JSON document on stdout otherwise. `stage`
+    (`usage` | `request`) mirrors the exit code so scripts branch without decoding prose."""
     if sys.stdout.isatty():
         color = os.environ.get("NO_COLOR") is None and sys.stderr.isatty()
         prefix = "\x1b[1;31merror:\x1b[0m" if color else "error:"
         print("%s %s" % (prefix, message), file=sys.stderr)
     else:
-        print(json.dumps({"Error": {"message": message}}, indent=2))
+        print(json.dumps({"Error": {"message": message, "stage": stage}}, indent=2))
     sys.exit(code)
 
 
+def emit(variant, payload):
+    """Print a two-space-indented single-key union document: the machine-mode result shape
+    for every command, success and failure alike."""
+    print(json.dumps({variant: payload}, indent=2, ensure_ascii=False))
+
+
+class Parser(argparse.ArgumentParser):
+    """argparse whose usage errors follow the same contract as every other failure: exit 2,
+    human prose on stderr at a TTY, an `{ "Error": ... }` JSON document on stdout otherwise
+    (stock argparse prints bare prose to stderr in both modes)."""
+
+    def error(self, message):
+        if sys.stdout.isatty():
+            self.print_usage(sys.stderr)
+        fail(message, code=2, stage="usage")
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(
+    parser = Parser(
         prog="seecast",
         description="Annotate an asciinema .cast recording with { title, summary, chapters } "
         "metadata (see SCHEMA.md), via cursor-agent on Composer Fast.",
+        epilog="exit codes: 0 ok, 1 failure, 2 usage, 130 interrupted (Ctrl+C); "
+        "a broken pipe ends the program quietly. When stdout is not a TTY, results are "
+        "single-key JSON documents (see SCHEMA.md and the module docstring).",
     )
     parser.add_argument("cast", nargs="?", help="the .cast recording (asciicast v2 or v3)")
+    parser.add_argument("--version", action="store_true", help="print the version and exit (works offline)")
     parser.add_argument("-o", "--output", help="sidecar path; default: <recording>.meta.json ('-' = stdout only)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="cursor-agent model (default: %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="watchdog seconds (default: %(default)s)")
@@ -270,6 +299,14 @@ def main(argv=None):
     )
     parser.add_argument("--validate", metavar="META_JSON", help="validate a sidecar file against the schema and stop")
     args = parser.parse_args(argv)
+    machine = not sys.stdout.isatty()
+
+    if args.version:
+        if machine:
+            emit("Version", {"version": VERSION})
+        else:
+            print("seecast %s" % VERSION)
+        return
 
     if args.validate:
         try:
@@ -277,13 +314,17 @@ def main(argv=None):
                 validate_meta(json.load(f))
         except (OSError, ValueError) as e:
             fail("invalid metadata in `%s`: %s" % (args.validate, e))
-        print("`%s` conforms to the cast metadata schema" % args.validate, file=sys.stderr)
+        if machine:
+            emit("Valid", {"path": args.validate})
+        else:
+            print("`%s` conforms to the cast metadata schema" % args.validate)
         return
 
     if not args.cast:
         parser.error("the .cast recording argument is required")
     try:
         if args.transcript:
+            # Explicit stream mode: the transcript itself is the data, no envelope.
             with open(args.cast, "r", encoding="utf-8", errors="replace") as f:
                 print(transcript(f.read()))
             return
@@ -291,13 +332,34 @@ def main(argv=None):
     except (OSError, ValueError, RuntimeError) as e:
         fail(str(e))
     sidecar_json = json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
-    if args.output != "-":
-        out_path = args.output or os.path.splitext(args.cast)[0] + ".meta.json"
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(sidecar_json)
+    if args.output == "-":
+        # Explicit stream mode: the sidecar itself is the data, no envelope; the exit
+        # code is the machine's success signal.
+        sys.stdout.write(sidecar_json)
+        return
+    out_path = args.output or os.path.splitext(args.cast)[0] + ".meta.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(sidecar_json)
+    if machine:
+        # The write narration rides inside the document (machine-mode stderr stays quiet).
+        emit("Annotated", {"output": out_path, "chapters": len(meta.get("chapters", [])), "meta": meta})
+    else:
         print("wrote %s (%d chapters)" % (out_path, len(meta.get("chapters", []))), file=sys.stderr)
-    sys.stdout.write(sidecar_json)  # the sidecar itself is the data; stdout gets it either way
+        sys.stdout.write(sidecar_json)
+
+
+def entry():
+    """Process-level signal discipline, applied only when running as a program (importers,
+    i.e. the tests, must not have their dispositions changed): a broken pipe ends the
+    program quietly (the SIGPIPE default, instead of Python's BrokenPipeError traceback),
+    and Ctrl+C exits 130 -- never a stack trace."""
+    if hasattr(signal, "SIGPIPE"):
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)
 
 
 if __name__ == "__main__":
-    main()
+    entry()
