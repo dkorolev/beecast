@@ -1,0 +1,9 @@
+#!/bin/sh
+# The full gate runs when code is about to leave the machine; committing stays free.
+# Enable once per clone: git config core.hooksPath .githooks
+set -e
+cd "$(git rev-parse --show-toplevel)"
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+cargo test --release
