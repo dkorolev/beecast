@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@@BEECAST_TITLE@@</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Ctext%20x='0'%20y='13'%20font-size='13'%3E%F0%9F%90%9D%3C/text%3E%3C/svg%3E">
+<style>
+@@BEECAST_PLAYER_CSS@@
+</style>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #121317; color: #d7d9df; font: 14px/1.5 system-ui, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column; }
+header { padding: 14px 16px 4px; }
+header h1 { margin: 0; font-size: 18px; }
+#summary { margin: 6px 0 0; color: #a7abb6; max-width: 84ch; }
+#summary[hidden] { display: none; }
+.controls { padding: 10px 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls .sep { color: #3a3d46; }
+.controls button { color: #7ab4ff; background: none; border: 1px solid #2a2d36; border-radius: 6px;
+  padding: 4px 10px; font: inherit; cursor: pointer; }
+.controls button:hover { border-color: #7ab4ff; }
+.controls button.active { border-color: #7ab4ff; color: #fff; background: #1d2a3d; }
+#note { background: #1d1f26; border: 1px solid #2a2d36; border-radius: 6px; color: #d7d9df;
+  font: inherit; padding: 4px 8px; width: 28ch; }
+.dim { color: #8a8d97; }
+.dim code { background: #1d1f26; padding: 1px 5px; border-radius: 4px; }
+#copied { color: #7dd87d; visibility: hidden; }
+#note-banner { margin: 0 16px 10px; padding: 8px 12px; border: 1px solid #6b5d2a; background: #2a2410;
+  border-radius: 6px; color: #ffd97a; max-width: 100ch; }
+#note-banner[hidden] { display: none; }
+#note-banner .at { color: #b9a24e; margin-right: 8px; font-variant-numeric: tabular-nums; }
+#chapters { padding: 0 16px 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+#chapters button { font: inherit; font-size: 12px; color: #ccd; background: #1d1f26;
+  border: 1px solid #2a2d36; border-radius: 5px; padding: 2px 8px; cursor: pointer; }
+#chapters button:hover { border-color: #7ab4ff; color: #fff; }
+#chapters button .t { color: #7ab4ff; margin-right: 5px; font-variant-numeric: tabular-nums; }
+/* Fill the viewport below the header/controls so fit:'both' fits vertically too. */
+#player-wrap { flex: 1; padding: 0 16px 10px; min-height: 300px; }
+#player, .ap-player { width: 100%; height: 100%; max-width: 100%; }
+footer { padding: 0 16px 12px; font-size: 12px; color: #6c7080; }
+</style>
+</head>
+<body>
+<header>
+<h1>@@BEECAST_TITLE@@</h1>
+<p id="summary"@@BEECAST_SUMMARY_HIDDEN@@>@@BEECAST_SUMMARY@@</p>
+</header>
+<div class="controls">
+<span class="dim">speed</span>
+<button data-speed="0.5">0.5×</button>
+<button data-speed="1" class="active">1×</button>
+<button data-speed="1.5">1.5×</button>
+<button data-speed="2">2×</button>
+<button data-speed="3">3×</button>
+<span class="sep">·</span>
+<input id="note" placeholder="optional comment for the link">
+<button id="copy-t">🔗 copy link at current time</button><span id="copied">copied</span>
+<span class="dim">deep link: <code>?t=90</code> / <code>?t=1:30&amp;note=…</code></span>
+</div>
+<div id="note-banner" hidden></div>
+<div id="chapters"></div>
+<div id="player-wrap"><div id="player"></div></div>
+<footer>@@BEECAST_FOOTER@@ — a single self-contained file: save this page and it keeps working offline.</footer>
+<script>
+@@BEECAST_PLAYER_JS@@
+</script>
+<script>
+"use strict";
+// The recording and its metadata, inlined at build time — the page never fetches anything.
+const CAST_DATA = @@BEECAST_CAST_JSON@@;
+const META = @@BEECAST_META_JSON@@;
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const chapters = META.chapters || [];
+  const MARKERS = chapters.map((c) => [c.t, c.title]);
+
+  // "93.5" | "1:33.5" | "1:02:03" -> seconds; null when malformed.
+  function parseT(s) {
+    if (!s || !/^[0-9]+(\.[0-9]+)?(:[0-9]+(\.[0-9]+)?){0,2}$/.test(s)) return null;
+    let t = 0;
+    for (const p of s.split(':')) t = t * 60 + Number(p);
+    return Number.isFinite(t) ? t : null;
+  }
+  function fmtClock(t) {
+    t = Math.max(0, t);
+    const m = Math.floor(t / 60), s = Math.floor(t % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  // Deep links arrive as URL *query parameters* (?t=…&note=…), never fragments or server
+  // routes, so they work identically over http(s) and from a local file:// path.
+  const params = new URLSearchParams(location.search);
+  const linkT = parseT(params.get('t'));
+  const linkNote = params.get('note');
+
+  let player = null;
+  let speed = 1;
+  let wasPlaying = false;
+
+  // The player has no runtime set-speed API, so speed changes (and reloads) recreate it
+  // in place, parked or playing at the same moment.
+  function create(startAt, autoPlay) {
+    if (player) { try { player.dispose(); } catch (e) {} player = null; }
+    const opts = { fit: 'both', preload: true, markers: MARKERS, speed: speed, idleTimeLimit: 2 };
+    if (startAt != null && startAt > 0) {
+      opts.startAt = startAt;
+      opts.poster = 'npt:' + startAt; // park on the linked frame, visible before play
+    }
+    if (autoPlay) opts.autoPlay = true;
+    player = AsciinemaPlayer.create({ data: CAST_DATA }, $('player'), opts);
+    player.addEventListener('play', () => { wasPlaying = true; });
+    player.addEventListener('playing', () => { wasPlaying = true; });
+    player.addEventListener('pause', () => { wasPlaying = false; });
+    player.addEventListener('ended', () => { wasPlaying = false; });
+  }
+
+  document.querySelectorAll('[data-speed]').forEach((b) => {
+    b.addEventListener('click', () => {
+      speed = Number(b.dataset.speed);
+      document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('active', x === b));
+      const resume = wasPlaying;
+      Promise.resolve(player ? player.getCurrentTime() : 0).then((t) => create(t, resume));
+    });
+  });
+
+  const cbar = $('chapters');
+  chapters.forEach((c) => {
+    const b = document.createElement('button');
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = fmtClock(c.t);
+    b.appendChild(t);
+    b.appendChild(document.createTextNode(c.title));
+    b.addEventListener('click', () => {
+      if (player) Promise.resolve(player.seek(c.t)).then(() => player.play());
+    });
+    cbar.appendChild(b);
+  });
+
+  $('copy-t').addEventListener('click', () => {
+    Promise.resolve(player ? player.getCurrentTime() : 0).then((now) => {
+      const t = Math.round(now * 10) / 10;
+      const base = location.href.split(/[?#]/)[0];
+      let url = base + '?t=' + t;
+      const note = $('note').value.trim();
+      if (note) url += '&note=' + encodeURIComponent(note);
+      try { history.replaceState(null, '', url); } catch (e) { /* some file:// contexts refuse; the copy below still works */ }
+      const done = () => {
+        $('copied').style.visibility = 'visible';
+        setTimeout(() => { $('copied').style.visibility = 'hidden'; }, 1200);
+      };
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        if (ok) done(); else window.prompt('Copy this link:', url);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done, fallback);
+      } else {
+        fallback();
+      }
+    });
+  });
+
+  if (linkNote) {
+    const nb = $('note-banner');
+    if (linkT != null) {
+      const at = document.createElement('span');
+      at.className = 'at';
+      at.textContent = '@' + fmtClock(linkT);
+      nb.appendChild(at);
+    }
+    nb.appendChild(document.createTextNode(linkNote));
+    nb.hidden = false;
+    $('note').value = linkNote; // pre-fill so re-sharing keeps the comment
+  }
+
+  create(linkT, false);
+})();
+</script>
+</body>
+</html>

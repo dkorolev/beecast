@@ -1,0 +1,19 @@
+[package]
+name = "beecast"
+version = "0.1.0"
+edition = "2021"
+description = "Browser Cast — turn an asciinema .cast recording into a single self-contained .html player page."
+license = "MIT"
+
+[[bin]]
+name = "beecast"
+path = "src/main.rs"
+
+# Only small, established, single-purpose crates are used, per ENG-PRINCIPLES §7.
+# `serde` and `serde_json` are the one canonical way to get strict, strongly-typed JSON with `deny_unknown_fields` (§1).
+# `thiserror` types the errors callers branch on, and `anyhow` carries context where they don't (§5).
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"

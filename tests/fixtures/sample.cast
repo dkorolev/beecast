@@ -1,0 +1,6 @@
+{"version":3,"term":{"cols":80,"rows":24,"type":"xterm-256color"},"timestamp":1783000000}
+[0.5,"o","$ echo hello\r\n"]
+[0.7,"o","hello\r\n"]
+[1.3,"o","$ make build\r\n"]
+[2.0,"o","build ok\r\n"]
+[0.5,"o","$ exit\r\n"]
