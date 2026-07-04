@@ -60,7 +60,7 @@ ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast     # from the repo root
 
 ## The `scsh` skill
 
-The same annotator ships as a scoped skill for [scsh](https://github.com/dkorolev/scsh), where the harness itself is cursor/Composer — the model reads the transcript and writes the sidecar directly, no nested agent call:
+The same annotator ships as a scoped skill for [scsh](https://github.com/dkorolev/scsh) (needs an scsh with the `cursor` harness, ≥ 1.10), where the harness itself is cursor/Composer — the model reads the transcript and writes the sidecar directly, no nested agent call. This is the canonical path for casts that live in a repo; the standalone script above is for loose files:
 
 ```
 scsh installskills <this-repo>       # into your repo's .scsh.yml
