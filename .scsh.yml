@@ -1,0 +1,11 @@
+# .scsh.yml — Scoped Skills Helper config; `scsh help .scsh.yml` for the schema.
+# Run with: CAST=<repo-relative path to the .cast> scsh run --profile seecast
+skills:
+  seecast:
+    harness: cursor
+    model: composer-2.5-fast
+    timeout: 600
+    profile: seecast
+    env:
+      - CAST: ${CAST:?set CAST to the repo-relative path of the .cast recording to annotate}
+    result: tmp/seecast.json
