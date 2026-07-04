@@ -152,6 +152,32 @@ class Annotate(unittest.TestCase):
             with self.assertRaises(ValueError):
                 seecast.annotate(cast, run=bad_stub)
 
+    def test_watchdog_timeout_is_retried_once_then_fatal(self):
+        calls = []
+
+        def flaky(model, prompt, timeout):
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("cursor-agent produced no result within 1 s and was killed")
+            return '{"title": "T", "summary": "S.", "chapters": [{"t": 0, "title": "A"}]}'
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V3)
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                meta = seecast.annotate(cast, run=flaky)
+            self.assertEqual(meta["title"], "T")
+            self.assertEqual(len(calls), 2, "one retry, no more")
+            self.assertIn("retrying once", err.getvalue(), "the retry is announced, not hidden")
+
+            def always_dead(model, prompt, timeout):
+                raise RuntimeError("cursor-agent produced no result within 1 s and was killed")
+
+            with contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(RuntimeError, msg="the second failure is final"):
+                    seecast.annotate(cast, run=always_dead)
+
 
 class SchemaMirror(unittest.TestCase):
     """`validate_meta` is a hand-written mirror of the Rust types (the §1 source of truth;

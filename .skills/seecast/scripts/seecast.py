@@ -242,12 +242,20 @@ def run_cursor_agent(model, prompt, timeout=DEFAULT_TIMEOUT):
 
 def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cursor_agent):
     """The full flow: read -> transcript -> model -> validate. Returns the metadata dict.
-    `run` is injectable so tests can stub the model call."""
+    `run` is injectable so tests can stub the model call. A watchdog-killed call is
+    retried ONCE (announced on stderr): cursor-agent occasionally stalls on startup and
+    then answers a fresh call within seconds, so one retry turns a flaky external into a
+    reliable command without hiding that anything happened (paragraph 9)."""
     with open(cast_path, "r", encoding="utf-8", errors="replace") as f:
         text = transcript(f.read())
     if not text.strip():
         raise ValueError("the recording has no visible output to annotate")
-    reply = run(model, build_prompt(text), timeout)
+    prompt = build_prompt(text)
+    try:
+        reply = run(model, prompt, timeout)
+    except RuntimeError as e:
+        print("seecast: %s; retrying once" % e, file=sys.stderr)
+        reply = run(model, prompt, timeout)
     return validate_meta(extract_json(reply), generated=True)
 
 
