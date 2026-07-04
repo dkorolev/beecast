@@ -35,9 +35,15 @@ The timekey `t` is fractional seconds; chapters are strictly ascending and the f
 ./seecast --version                         # works offline
 ```
 
+Install it as a command — single-file and stdlib-only means a symlink (or a copy) is the whole story:
+
+```
+ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast     # from the repo root
+```
+
 - Reads asciicast **v2 and v3** (v3 event times are relative and get accumulated).
 - Renders the recording into a compact, timestamped, ANSI-stripped transcript, deduplicated and downsampled — TUI redraws don't flood the prompt.
-- Calls `cursor-agent -p` headless; a hard watchdog kills a hung call (default 180 s), and liveness ticks go to stderr every ~10 s so callers can tell it's alive.
+- Calls `cursor-agent -p` headless; a hard watchdog kills a hung call (default 180 s) and retries it once — announced on stderr, since cursor-agent occasionally stalls on startup — and liveness ticks go to stderr every ~10 s so callers can tell it's alive.
 - Writes the validated sidecar next to the recording (`demo.cast` → `demo.meta.json`).
 - Human at a TTY gets human-readable output; `--json` (or a piped/captured stdout) gets a two-space-indented single-key JSON document with a request-specific variant: `{ "Annotated": { output, chapters, meta } }`, `{ "Valid": … }`, `{ "Version": … }`, and on failure `{ "Error": { message, stage } }` where `stage` is `usage` or `request`. The explicit stream modes (`--transcript`, `-o -`) emit the bare document — it *is* the data.
 - Exit codes: `0` success, `1` failure, `2` usage, `130` interrupted; a broken pipe ends the program quietly.
