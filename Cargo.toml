@@ -4,6 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Browser Cast — turn an asciinema .cast recording into a single self-contained .html player page."
 license = "MIT"
+repository = "https://github.com/dkorolev/beecast"
+readme = "README.md"
+keywords = ["asciinema", "terminal", "recording", "cast", "player"]
+categories = ["command-line-utilities"]
+# The published crate is the Rust CLI only: the sources under src/ (vendored player and page template included), the schema it embeds via include_str!, and the docs.
+# The SeeCast Python annotator and the test fixtures stay repo-only.
+include = ["/src/", "/schema/", "/README.md", "/SCHEMA.md", "/LICENSE"]
 
 [[bin]]
 name = "beecast"
