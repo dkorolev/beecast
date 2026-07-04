@@ -265,7 +265,9 @@ def main(argv=None):
     parser.add_argument("-o", "--output", help="sidecar path; default: <recording>.meta.json ('-' = stdout only)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="cursor-agent model (default: %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="watchdog seconds (default: %(default)s)")
-    parser.add_argument("--transcript", action="store_true", help="print the compact transcript and stop (no model call)")
+    parser.add_argument(
+        "--transcript", action="store_true", help="print the compact transcript and stop (no model call)"
+    )
     parser.add_argument("--validate", metavar="META_JSON", help="validate a sidecar file against the schema and stop")
     args = parser.parse_args(argv)
 

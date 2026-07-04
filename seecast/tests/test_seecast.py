@@ -14,8 +14,14 @@ spec = importlib.util.spec_from_file_location("seecast", SCRIPT)
 seecast = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(seecast)
 
-V2 = '{"version":2,"width":80,"height":24}\n[0.5,"o","\\u001b[2Jhello\\r\\n"]\n[1.0,"o","hello\\r\\n"]\n[65.0,"o","done\\r\\n"]\n'
-V3 = '{"version":3,"term":{"cols":80,"rows":24}}\n[0.5,"o","hello\\r\\n"]\n[1.0,"o","world\\r\\n"]\n[63.5,"o","done\\r\\n"]\n'
+V2 = (
+    '{"version":2,"width":80,"height":24}\n'
+    '[0.5,"o","\\u001b[2Jhello\\r\\n"]\n[1.0,"o","hello\\r\\n"]\n[65.0,"o","done\\r\\n"]\n'
+)
+V3 = (
+    '{"version":3,"term":{"cols":80,"rows":24}}\n'
+    '[0.5,"o","hello\\r\\n"]\n[1.0,"o","world\\r\\n"]\n[63.5,"o","done\\r\\n"]\n'
+)
 
 
 class StripAnsi(unittest.TestCase):
@@ -48,7 +54,10 @@ class Transcript(unittest.TestCase):
         self.assertIn("[1.0s] line 1", t, "chronological order preserved")
 
     def test_drops_spinner_noise(self):
-        cast = '{"version":2,"width":80,"height":24}\n[1,"o","✶\\r\\n"]\n[2,"o","i…\\r\\n"]\n[3,"o","✻3\\r\\n"]\n[4,"o","build passed\\r\\n"]\n'
+        cast = (
+            '{"version":2,"width":80,"height":24}\n'
+            '[1,"o","✶\\r\\n"]\n[2,"o","i…\\r\\n"]\n[3,"o","✻3\\r\\n"]\n[4,"o","build passed\\r\\n"]\n'
+        )
         t = seecast.transcript(cast)
         self.assertEqual(t, "[4.0s] build passed")
 
