@@ -2,7 +2,7 @@
 
 One JSON file per recording, next to it: `demo.cast` → `demo.meta.json`. It carries the three things a bare recording cannot: a **title**, a **summary**, and **timekeyed chapters**. All three are optional — a recording with no sidecar still plays.
 
-The machine-checkable rendering lives in [`schema/beecast-meta.schema.json`](schema/beecast-meta.schema.json); the Rust types in [`src/meta.rs`](src/meta.rs) are the source of truth, and a unit test keeps the two in sync. [SeeCast](seecast/README.md) generates files in this exact shape.
+The machine-checkable rendering lives in [`schema/beecast-meta.schema.json`](schema/beecast-meta.schema.json); the Rust types in [`src/meta.rs`](src/meta.rs) are the source of truth, and a unit test keeps the two in sync. [SeeCast](seecast/README.md) — the annotator living in this repo — generates files in this exact shape, and its validator (`validate_meta` in [`seecast/seecast`](seecast/seecast)) enforces the same rules on everything it emits.
 
 ```json
 {
@@ -35,4 +35,4 @@ Each chapter is `{ "t": <seconds>, "title": "<short phrase>" }`.
 
 ## Strictness
 
-Parsing is strict end to end: an unknown key anywhere — a typo like `"titel"`, an extra field on a chapter — is a hard error, not a silently-ignored no-op. Empty strings are rejected too: omit a field instead of passing `""`.
+Parsing is strict end to end: an unknown key anywhere — a typo like `"titel"`, an extra field on a chapter — is a hard error, not a silently-ignored no-op. Empty strings are rejected too: omit a field instead of passing `""`. SeeCast applies the same strictness to the model's replies: extra keys, out-of-order chapters, or a missing summary mean no sidecar is written at all.
