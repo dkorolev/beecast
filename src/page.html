@@ -11,8 +11,10 @@
 <style>
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
+/* `height` (not `min-height`): the flex chain must be definite, or the percentage heights
+   down at #player resolve to content height and the terminal renders 0-sized. */
 body { margin: 0; background: #121317; color: #d7d9df; font: 14px/1.5 system-ui, sans-serif;
-  min-height: 100vh; display: flex; flex-direction: column; }
+  height: 100vh; display: flex; flex-direction: column; }
 header { padding: 14px 16px 4px; }
 header h1 { margin: 0; font-size: 18px; }
 #summary { margin: 6px 0 0; color: #a7abb6; max-width: 84ch; }
