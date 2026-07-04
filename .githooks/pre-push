@@ -7,3 +7,4 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --release
+python3 -m unittest discover -s seecast/tests
