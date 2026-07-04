@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "beecast-meta.schema.json",
+  "title": "Cast metadata sidecar",
+  "description": "Sidecar metadata for an asciinema .cast recording: title, summary, and chapters. Conventionally stored next to the recording as <name>.meta.json. Two invariants are beyond JSON Schema and are enforced by the beecast/seecast validators: chapters are STRICTLY ascending by `t`, and when chapters are present the first one MUST have `t` exactly 0.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human title for the recording; shown as the page title and header. Omit the field rather than passing an empty string."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One- or two-sentence description of what the recording shows; rendered under the title."
+    },
+    "chapters": {
+      "type": "array",
+      "description": "Chapter markers, strictly ascending by `t`. When non-empty, the first chapter MUST start at t = 0 so the opening segment always has a marker.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["t", "title"],
+        "properties": {
+          "t": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The timekey: seconds into the recording. Fractional values are allowed (e.g. 12.5). The first chapter's timekey MUST be exactly 0."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short chapter title; 3-6 words works best."
+          }
+        }
+      }
+    }
+  }
+}
