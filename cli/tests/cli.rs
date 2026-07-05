@@ -179,14 +179,15 @@ fn global_json_and_color_flags_are_accepted_anywhere() {
   let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `beecast schema` is the codegen script (§1): its output must be exactly the shipped
-/// schema file, which the unit test in `meta.rs` pins to the generated document.
+/// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
+/// shipped in the `beecast-dto` crate, which a unit test there pins to the generated document.
 #[test]
 fn schema_command_matches_the_shipped_file() {
   let dir = tempdir("schemagen");
   let out = beecast(&["schema"], &dir);
   assert!(out.status.success());
-  let shipped = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("schema/beecast-meta.schema.json")).unwrap();
-  assert_eq!(out.stdout, shipped, "run `cargo run -q -- schema > schema/beecast-meta.schema.json`");
+  let shipped =
+    std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../dto/schema/beecast-meta.schema.json")).unwrap();
+  assert_eq!(out.stdout, shipped, "run `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`");
   let _ = std::fs::remove_dir_all(&dir);
 }

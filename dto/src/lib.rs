@@ -1,11 +1,11 @@
-//! The cast metadata sidecar: `{ title, summary, chapters }`.
+//! `beecast-dto` — the cast-metadata sidecar DTO: `{ title, summary, chapters }`.
 //!
 //! These Rust types are the source of truth for the sidecar's shape (ENG-PRINCIPLES §1).
 //! `schema/beecast-meta.schema.json` is the formal JSON Schema rendering — *generated*
 //! from these types by [`generated_schema`] (doc comments become descriptions) and pinned
 //! byte-for-byte by a unit test below; regenerate with
-//! `cargo run -q -- schema > schema/beecast-meta.schema.json`. `SCHEMA.md` is the
-//! human-readable rendering. Parsing is strict — an unknown key is a hard, loud error.
+//! `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`. `SCHEMA.md`
+//! is the human-readable rendering. Parsing is strict — an unknown key is a hard, loud error.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -111,10 +111,20 @@ impl CastMeta {
   }
 }
 
-/// Parse and validate a sidecar. serde reports syntax and unknown-field errors;
-/// [`CastMeta::validate`] reports the semantic ones. Both come back as one `anyhow`
-/// error with the file's story attached by the caller.
-pub fn parse(json: &str) -> anyhow::Result<CastMeta> {
+/// Everything that can go wrong parsing a sidecar: a JSON syntax or unknown-field error
+/// from serde, or a semantic invariant from [`CastMeta::validate`]. Typed so a library
+/// caller can branch on it (§5); the CLI adds `anyhow` context on top.
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+  #[error("invalid JSON: {0}")]
+  Json(#[from] serde_json::Error),
+  #[error(transparent)]
+  Invalid(#[from] MetaError),
+}
+
+/// Parse and validate a sidecar: serde reports syntax and unknown-field errors,
+/// [`CastMeta::validate`] the semantic ones, both funneled into one typed [`ParseError`].
+pub fn parse(json: &str) -> Result<CastMeta, ParseError> {
   let meta: CastMeta = serde_json::from_str(json)?;
   meta.validate()?;
   Ok(meta)
@@ -165,14 +175,14 @@ mod tests {
     assert_eq!(blank_chapter.validate(), Err(MetaError::EmptyChapterTitle { index: 0 }));
   }
 
-  /// The shipped schema file IS the codegen output (§1): byte-for-byte. When this fails,
-  /// the types changed — regenerate with `cargo run -q -- schema > schema/beecast-meta.schema.json`.
+  /// The shipped schema file IS the codegen output (§1): byte-for-byte. When this fails, the
+  /// types changed — regenerate with `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`.
   #[test]
   fn shipped_schema_is_the_generated_one() {
     assert_eq!(
       JSON_SCHEMA,
       generated_schema(),
-      "schema/beecast-meta.schema.json is stale; regenerate it from the Rust types"
+      "dto/schema/beecast-meta.schema.json is stale; regenerate it from the Rust types"
     );
   }
 

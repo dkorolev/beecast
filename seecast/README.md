@@ -8,7 +8,7 @@
 
 ## What it produces
 
-A sidecar in the shape specified by [`SCHEMA.md`](../SCHEMA.md) (formally: [`schema/beecast-meta.schema.json`](../schema/beecast-meta.schema.json) — one copy, kept in sync with the Rust types in [`src/meta.rs`](../src/meta.rs), the source of truth):
+A sidecar in the shape specified by [`dto/SCHEMA.md`](../dto/SCHEMA.md) (formally: [`dto/schema/beecast-meta.schema.json`](../dto/schema/beecast-meta.schema.json) — one copy, generated from the Rust types in the [`beecast-dto`](../dto) crate, the source of truth):
 
 ```json
 {
