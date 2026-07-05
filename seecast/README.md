@@ -33,6 +33,7 @@ The timekey `t` is fractional seconds; chapters are strictly ascending and the f
 ./seecast --transcript <recording.cast>     # print the compact transcript and stop
 ./seecast --validate <meta.json>            # validate a sidecar against the schema and stop
 ./seecast --version                         # works offline
+./seecast help exitcodes                    # print the exit-code table
 ```
 
 Install it as a command — single-file and stdlib-only means a symlink (or a copy) is the whole story:
