@@ -185,7 +185,7 @@ class SchemaMirror(unittest.TestCase):
     facts the mirror relies on, so drift dies in this gate rather than at annotate time."""
 
     def test_generated_schema_agrees_with_the_mirror(self):
-        path = os.path.join(os.path.dirname(__file__), "..", "..", "schema", "beecast-meta.schema.json")
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "dto", "schema", "beecast-meta.schema.json")
         with open(path, encoding="utf-8") as f:
             schema = json.load(f)
         self.assertIs(schema["additionalProperties"], False, "unknown top-level keys are rejected")

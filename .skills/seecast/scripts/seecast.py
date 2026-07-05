@@ -3,7 +3,7 @@
 
 Renders the recording into a compact timestamped transcript, hands it to `cursor-agent -p`
 (headless, Composer Fast by default), validates the reply against the cast-metadata schema
-(see SCHEMA.md; strictly ascending fractional-second timekeys, first chapter pinned to 0),
+(see dto/SCHEMA.md; strictly ascending fractional-second timekeys, first chapter pinned to 0),
 and writes the sidecar next to the recording: demo.cast -> demo.meta.json.
 
 Stdlib-only and single-file on purpose: this exact file is what the scsh skill bundles,
@@ -314,9 +314,9 @@ def main(argv=None):
     parser = Parser(
         prog="seecast",
         description="Annotate an asciinema .cast recording with { title, summary, chapters } "
-        "metadata (see SCHEMA.md), via cursor-agent on Composer Fast.",
+        "metadata (see dto/SCHEMA.md), via cursor-agent on Composer Fast.",
         epilog="`seecast help exitcodes` prints the exit-code table. When stdout is not a "
-        "TTY, results are single-key JSON documents (see SCHEMA.md and the module docstring).",
+        "TTY, results are single-key JSON documents (see dto/SCHEMA.md and the module docstring).",
     )
     parser.add_argument("cast", nargs="?", help="the .cast recording (asciicast v2 or v3)")
     parser.add_argument("--version", action="store_true", help="print the version and exit (works offline)")

@@ -1,32 +1,22 @@
-[package]
-name = "beecast"
+[workspace]
+resolver = "2"
+members = ["dto", "cli"]
+
+# One source of truth for the shared package metadata, and for the version every crate inherits (§7).
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "Browser Cast — turn an asciinema .cast recording into a single self-contained .html player page."
-# BeeCast's own code is MIT, while the vendored and inlined asciinema-player is Apache-2.0.
-# The crate ships both, and every generated page embeds both, so the SPDX expression names both.
-license = "MIT AND Apache-2.0"
+authors = ['Dmitry "Dima" Korolev <dmitry.korolev@gmail.com>']
+license = "MIT"
 repository = "https://github.com/dkorolev/beecast"
-readme = "README.md"
-keywords = ["asciinema", "terminal", "recording", "cast", "player"]
-categories = ["command-line-utilities"]
-# The published crate is the Rust CLI only: the sources under src/ (vendored player and page template included), the schema it embeds via include_str!, and the docs.
-# The SeeCast Python annotator and the test fixtures stay repo-only.
-include = ["/src/", "/schema/", "/README.md", "/SCHEMA.md", "/LICENSE"]
 
-[[bin]]
-name = "beecast"
-path = "src/main.rs"
-
-# Only small, established, single-purpose crates are used, per ENG-PRINCIPLES §7.
-# `serde` and `serde_json` are the one canonical way to get strict, strongly-typed JSON with `deny_unknown_fields` (§1).
-# `thiserror` types the errors callers branch on, and `anyhow` carries context where they don't (§5).
-[dependencies]
+# Shared dependencies, including the internal DTO crate.
+# The internal dep carries both a `path` (used inside the workspace) and a `version` (used once published).
+# `cargo publish` strips the path, so the published `beecast` depends on `beecast-dto` from the registry.
+[workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-anyhow = "1"
-
-# The JSON Schema is generated from the Rust types (§1), never hand-written.
-# `schemars` turns the very structs serde deserializes, doc comments included, into the schema, and a unit test pins the shipped file byte-for-byte to that output.
 schemars = "1"
+anyhow = "1"
+beecast-dto = { path = "dto", version = "0.1.0" }

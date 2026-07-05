@@ -6,7 +6,7 @@
 //! The page's structure and behavior live in `page.html` (per ENG-PRINCIPLES §4 the glue
 //! is deliberately trivial vanilla JS); this module fills its `@@BEECAST_*@@` tokens.
 
-use crate::meta::CastMeta;
+use beecast_dto::CastMeta;
 
 const TEMPLATE: &str = include_str!("page.html");
 const PLAYER_JS: &str = include_str!("vendor/asciinema-player.min.js");
@@ -77,7 +77,7 @@ fn script_safe(json: &str) -> String {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::meta::{CastMeta, Chapter};
+  use beecast_dto::{CastMeta, Chapter};
 
   fn demo_meta() -> CastMeta {
     CastMeta {

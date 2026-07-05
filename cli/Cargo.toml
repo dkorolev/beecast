@@ -1,0 +1,29 @@
+[package]
+name = "beecast"
+description = "Browser Cast — turn an asciinema .cast recording into a single self-contained .html player page."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+# BeeCast's own code is MIT, while the vendored and inlined asciinema-player is Apache-2.0.
+# The crate ships both, and every generated page embeds both, so the SPDX expression names both.
+license = "MIT AND Apache-2.0"
+keywords = ["asciinema", "terminal", "cast", "player", "html"]
+categories = ["command-line-utilities"]
+# The published crate is the CLI: its sources (with the vendored player and page template) and its README.
+# The test suite and fixtures stay repo-only.
+include = ["/src/", "/README.md"]
+
+[[bin]]
+name = "beecast"
+path = "src/main.rs"
+
+# The metadata types come from the versioned `beecast-dto` crate; the CLI adds rendering and I/O.
+# `serde_json` builds the machine-mode output documents, `anyhow` carries error context (§5),
+# and `thiserror` types the cast-inspection errors the CLI branches on.
+[dependencies]
+beecast-dto.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true

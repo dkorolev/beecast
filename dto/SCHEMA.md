@@ -2,7 +2,7 @@
 
 One JSON file per recording, next to it: `demo.cast` → `demo.meta.json`. It carries the three things a bare recording cannot: a **title**, a **summary**, and **timekeyed chapters**. All three are optional — a recording with no sidecar still plays.
 
-The machine-checkable rendering lives in [`schema/beecast-meta.schema.json`](schema/beecast-meta.schema.json); the Rust types in [`src/meta.rs`](src/meta.rs) are the source of truth, and a unit test keeps the two in sync. [SeeCast](seecast/README.md) — the annotator living in this repo — generates files in this exact shape, and its validator (`validate_meta` in [`seecast/seecast`](seecast/seecast)) enforces the same rules on everything it emits.
+The machine-checkable rendering lives in [`schema/beecast-meta.schema.json`](schema/beecast-meta.schema.json); the Rust types in this crate's [`src/lib.rs`](src/lib.rs) are the source of truth, and a unit test keeps the two in sync (the schema is generated from the types). [SeeCast](../seecast/README.md) — the annotator living in this repo — generates files in this exact shape, and its validator (`validate_meta` in [`seecast/seecast`](../seecast/seecast)) enforces the same rules on everything it emits.
 
 ```json
 {

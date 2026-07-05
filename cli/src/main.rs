@@ -13,7 +13,6 @@
 //! rather than the panic the `print!` macros would raise — so no `libc`, no `unsafe`.
 
 mod cast;
-mod meta;
 mod page;
 
 use std::io::{IsTerminal, Write};
@@ -65,8 +64,9 @@ fn help_topic(topic: &str) -> Option<String> {
     "schema" => Some(
       "beecast schema\n\
        \n\
-       Prints the metadata sidecar's formal JSON Schema to stdout. The human-readable\n\
-       rendering is SCHEMA.md; the Rust types in src/meta.rs are the source of truth.\n"
+       Prints the metadata sidecar's formal JSON Schema to stdout, generated from the Rust\n\
+       types in the beecast-dto crate (the source of truth); dto/SCHEMA.md is the\n\
+       human-readable rendering.\n"
         .into(),
     ),
     "exitcodes" => Some(
@@ -194,7 +194,7 @@ fn dispatch(args: &[String], machine: bool, color: bool) -> Result<(), Fail> {
       // Data → stdout, generated live from the Rust types (§1): this command IS the
       // codegen script — `beecast schema > schema/beecast-meta.schema.json` regenerates
       // the shipped file, and a unit test pins the two byte-for-byte.
-      emit(&meta::generated_schema());
+      emit(&beecast_dto::generated_schema());
       Ok(())
     }
     Some("build") => Ok(run_build(parse_build_args(&args[1..])?, machine)?),
@@ -316,15 +316,15 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
 /// Resolve which sidecar to use: an explicit `--meta` must exist and parse; the implicit
 /// `<recording>.meta.json` is used only when present. Returns the metadata and where it
 /// came from (`None` when the recording is played bare).
-fn load_meta(args: &BuildArgs) -> anyhow::Result<(meta::CastMeta, Option<PathBuf>)> {
+fn load_meta(args: &BuildArgs) -> anyhow::Result<(beecast_dto::CastMeta, Option<PathBuf>)> {
   let implicit = args.cast.with_extension("meta.json");
   let path = match &args.meta {
     Some(explicit) => explicit.clone(),
     None if implicit.is_file() => implicit,
-    None => return Ok((meta::CastMeta::default(), None)),
+    None => return Ok((beecast_dto::CastMeta::default(), None)),
   };
   let json = std::fs::read_to_string(&path).with_context(|| format!("cannot read metadata `{}`", path.display()))?;
-  let parsed = meta::parse(&json).with_context(|| format!("invalid metadata in `{}`", path.display()))?;
+  let parsed = beecast_dto::parse(&json).with_context(|| format!("invalid metadata in `{}`", path.display()))?;
   Ok((parsed, Some(path)))
 }
 
