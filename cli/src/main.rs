@@ -29,7 +29,8 @@ fn help() -> String {
      Turn an asciinema .cast recording into a single self-contained .html player page:\n\
      zero network requests, so a saved copy keeps working fully offline.\n\
      \n\
-     Usage: beecast <command> [options] — a bare `beecast` prints this help\n\
+     Usage: beecast <command> [options] — a bare `beecast` prints this help at a terminal\n\
+     (a machine invocation must name a command and gets a usage error otherwise)\n\
      \n\
      Commands:\n\
      \x20 • build <recording.cast>    Generate the player page next to the recording.\n\
@@ -175,6 +176,13 @@ impl From<anyhow::Error> for Fail {
 fn dispatch(args: &[String], machine: bool, color: bool) -> Result<(), Fail> {
   let first = args.first().map(String::as_str);
   match first {
+    // A bare invocation prints help for a human, but a machine gets a usage document:
+    // a script that runs `beecast` with no command is malfunctioning, and §2 owes it one
+    // parseable JSON error, never prose-with-exit-0 on the data stream. Explicitly
+    // *asking* for help (`help`, `--help`) stays help in every mode — that text is the data.
+    None if machine => {
+      Err(Usage("a command is required: beecast <build|schema|version|help> — run `beecast help`".into()).into())
+    }
     None | Some("help") | Some("--help") | Some("-h") => {
       match args.get(1) {
         Some(topic) => match help_topic(topic) {

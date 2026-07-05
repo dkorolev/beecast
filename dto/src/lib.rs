@@ -116,7 +116,9 @@ impl CastMeta {
 /// caller can branch on it (§5); the CLI adds `anyhow` context on top.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
-  #[error("invalid JSON: {0}")]
+  // Both variants are transparent: with a Display prefix AND #[from]'s implied source,
+  // anyhow's `{:#}` chain would print the inner message twice.
+  #[error(transparent)]
   Json(#[from] serde_json::Error),
   #[error(transparent)]
   Invalid(#[from] MetaError),

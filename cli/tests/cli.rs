@@ -83,6 +83,15 @@ fn invalid_metadata_fails_with_a_json_error_and_exit_1() {
   assert!(v["Error"]["message"].as_str().unwrap().contains("first chapter must start at t = 0"));
   assert_eq!(v["Error"]["stage"], "request", "run failures are stage=request");
   assert!(!dir.join("s.html").exists(), "no output written on failure");
+
+  // A serde-level failure (duplicate key) must state the problem exactly once — a
+  // Display prefix plus an error-chain source would print the serde message twice.
+  std::fs::write(dir.join("s.meta.json"), r#"{ "title": "a", "title": "b" }"#).unwrap();
+  let out = beecast(&["build", "s.cast"], &dir);
+  assert_eq!(out.status.code(), Some(1));
+  let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+  let msg = v["Error"]["message"].as_str().unwrap();
+  assert_eq!(msg.matches("duplicate field").count(), 1, "serde message printed once, got: {msg}");
 }
 
 #[test]
@@ -181,12 +190,25 @@ fn schema_prints_the_shipped_json_schema() {
 #[test]
 fn help_and_version_work() {
   let dir = tempdir("help");
+  // Explicitly asking for help prints help in every mode — the text IS the data.
   let help = beecast(&["help"], &dir);
   assert!(help.status.success());
   assert!(String::from_utf8_lossy(&help.stdout).contains("build <recording.cast>"));
   let ver = beecast(&["version"], &dir);
   let v: serde_json::Value = serde_json::from_slice(&ver.stdout).unwrap();
   assert_eq!(v["Version"]["version"], env!("CARGO_PKG_VERSION"));
+}
+
+#[test]
+fn bare_machine_invocation_is_a_usage_document_not_prose_help() {
+  let dir = tempdir("bare");
+  // A script running `beecast` with no command is malfunctioning; it gets one parseable
+  // JSON error and exit 2, never the prose help banner with exit 0 on the data stream.
+  let out = beecast(&[], &dir);
+  assert_eq!(out.status.code(), Some(2));
+  let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("usage error is clean JSON");
+  assert!(v["Error"]["message"].as_str().unwrap().contains("a command is required"));
+  assert_eq!(v["Error"]["stage"], "usage");
 }
 
 #[test]
