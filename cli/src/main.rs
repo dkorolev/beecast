@@ -43,7 +43,7 @@ fn help() -> String {
      \x20   --json                    Machine output (single-key JSON); the default when stdout is not a TTY.\n\
      \x20   --color=<auto|never|no>   Color for human output; never/no disable it, as does NO_COLOR.\n\
      \n\
-     The sidecar carries {{ title, summary, chapters }}; see SCHEMA.md. Chapters are keyed\n\
+     The sidecar carries {{ title, summary, chapters }}; see dto/SCHEMA.md. Chapters are keyed\n\
      by fractional seconds and the first one must start at 0. The generated page supports\n\
      chapter navigation, 0.5×–3× speed, and ?t=<seconds>&note=<comment> deep links.\n"
   )
@@ -97,10 +97,13 @@ struct Usage(String);
 
 fn main() -> ExitCode {
   let mut args: Vec<String> = std::env::args().skip(1).collect();
+  // `--json` must shape even a global-flag usage error, so peek before parsing consumes it:
+  // `beecast --json --color=bad` at a TTY still owes the caller an Error JSON document (§2).
+  let json_flag = args.iter().any(|a| a == "--json");
   let global = match parse_global(&mut args) {
     Ok(g) => g,
     Err(Usage(msg)) => {
-      report_error(&msg, !std::io::stdout().is_terminal(), "usage", false);
+      report_error(&msg, json_flag || !std::io::stdout().is_terminal(), "usage", false);
       return ExitCode::from(2);
     }
   };
@@ -192,7 +195,7 @@ fn dispatch(args: &[String], machine: bool, color: bool) -> Result<(), Fail> {
     }
     Some("schema") => {
       // Data → stdout, generated live from the Rust types (§1): this command IS the
-      // codegen script — `beecast schema > schema/beecast-meta.schema.json` regenerates
+      // codegen script — `beecast schema > dto/schema/beecast-meta.schema.json` regenerates
       // the shipped file, and a unit test pins the two byte-for-byte.
       emit(&beecast_dto::generated_schema());
       Ok(())
