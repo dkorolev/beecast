@@ -15,4 +15,11 @@ When re-vendoring `cli/src/vendor/asciinema-player.*`, keep `cli/src/vendor/READ
 
 The annotator lives in `.skills/seecast/scripts/seecast.py` — inside the skill directory so `scsh installskills` carries it whole into consumer repos; `seecast/seecast` is a symlink to it. Keep it single-file and stdlib-only.
 
+## Manual verification
+
+The deterministic gate covers parsing, validation, page assembly, and both CLI contracts; two surfaces need a human (or an agent with a browser and credentials) before a release:
+
+- **The generated page's JavaScript.** `cargo run -p beecast -- build cli/tests/fixtures/sample.cast -o /tmp/sample.html`, open it in a browser, and check: chapter buttons seek, speed switching works mid-playback, a `?t=1&note=hi` deep link parks the player with the note banner, and the network tab stays silent throughout.
+- **The real annotator path.** With `cursor-agent` logged in, run `./seecast/seecast <recording.cast>` on a real recording: liveness ticks appear on stderr every ~10 s while it works, and the written sidecar passes `./seecast/seecast --validate <recording>.meta.json`. The liberal-acceptance nudge (`beecast <recording>.cast` at a TTY) is checked the same way — it resolves to `build` and prints the canonical spelling in dim text.
+
 Two ENG-PRINCIPLES rules are consciously waived for tools this size — waived, not forgotten: §5's configurable verbosity levels (both CLIs are one-shot and near-silent; stderr diagnostics plus the `--json` documents cover the need), and §3's executable Markdown harness (the deterministic gates above already exercise both tools end to end).
