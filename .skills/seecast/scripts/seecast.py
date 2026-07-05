@@ -285,12 +285,14 @@ def run_cursor_agent(model, prompt, timeout=DEFAULT_TIMEOUT):
                 proc.communicate()
 
 
-def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cursor_agent):
+def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cursor_agent, warnings=None):
     """The full flow: read -> transcript -> model -> validate. Returns the metadata dict.
     `run` is injectable so tests can stub the model call. A watchdog-killed call is
-    retried ONCE (announced on stderr): cursor-agent occasionally stalls on startup and
-    then answers a fresh call within seconds, so one retry turns a flaky external into a
-    reliable command without hiding that anything happened (§9)."""
+    retried ONCE: cursor-agent occasionally stalls on startup and then answers a fresh
+    call within seconds, so one retry turns a flaky external into a reliable command
+    without hiding that anything happened (§9). The retry is a warning, and warnings land
+    in BOTH channels (§2): on stderr immediately, and appended to the caller's `warnings`
+    list so machine mode can fold them into the `Annotated` document."""
     with open(cast_path, "r", encoding="utf-8", errors="replace") as f:
         text = transcript(f.read())
     if not text.strip():
@@ -299,7 +301,10 @@ def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cu
     try:
         reply = run(model, prompt, timeout)
     except RuntimeError as e:
-        print("seecast: %s; retrying once" % e, file=sys.stderr)
+        message = "%s; retrying once" % e
+        if warnings is not None:
+            warnings.append(message)
+        print("seecast: %s" % message, file=sys.stderr)
         reply = run(model, prompt, timeout)
     return validate_meta(extract_json(reply), generated=True)
 
@@ -442,13 +447,14 @@ def main(argv=None):
 
     if not args.cast:
         parser.error("the .cast recording argument is required")
+    warnings = []
     try:
         if args.transcript:
             # Explicit stream mode: the transcript itself is the data, no envelope.
             with open(args.cast, "r", encoding="utf-8", errors="replace") as f:
                 print(transcript(f.read()))
             return
-        meta = annotate(args.cast, model=args.model, timeout=args.timeout)
+        meta = annotate(args.cast, model=args.model, timeout=args.timeout, warnings=warnings)
     except (OSError, ValueError, RuntimeError) as e:
         fail(str(e), machine=machine, color=args.color)
     sidecar_json = json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
@@ -466,8 +472,12 @@ def main(argv=None):
         # here, after the paid annotation has already succeeded.
         fail("cannot write `%s`: %s" % (out_path, e), machine=machine, color=args.color)
     if machine:
-        # The write narration rides inside the document (machine-mode stderr stays quiet).
-        emit("Annotated", {"output": out_path, "chapters": len(meta.get("chapters", [])), "meta": meta})
+        # The write narration rides inside the document (machine-mode stderr stays quiet);
+        # warnings appear here too, per §2 — a warning only on stderr is invisible to scripts.
+        emit(
+            "Annotated",
+            {"output": out_path, "chapters": len(meta.get("chapters", [])), "warnings": warnings, "meta": meta},
+        )
     else:
         # Human mode: the result line IS the output — raw JSON stays in the file and the
         # explicit stream modes, per the module docstring.

@@ -229,11 +229,15 @@ class Annotate(unittest.TestCase):
             cast = os.path.join(tmp, "rec.cast")
             with open(cast, "w") as f:
                 f.write(V3)
+            warnings = []
             with contextlib.redirect_stderr(io.StringIO()) as err:
-                meta = seecast.annotate(cast, run=flaky)
+                meta = seecast.annotate(cast, run=flaky, warnings=warnings)
             self.assertEqual(meta["title"], "T")
             self.assertEqual(len(calls), 2, "one retry, no more")
             self.assertIn("retrying once", err.getvalue(), "the retry is announced, not hidden")
+            # …and collected for the machine document too: warnings land in BOTH channels (§2).
+            self.assertEqual(len(warnings), 1)
+            self.assertIn("retrying once", warnings[0])
 
             def always_dead(model, prompt, timeout):
                 raise RuntimeError("cursor-agent produced no result within 1 s and was killed")
@@ -398,13 +402,14 @@ class CliContract(unittest.TestCase):
             cast = os.path.join(tmp, "rec.cast")
             with open(cast, "w") as f:
                 f.write(V3)
-            stub = lambda path, model, timeout: seecast.validate_meta(json.loads(reply), generated=True)
+            stub = lambda *a, **k: seecast.validate_meta(json.loads(reply), generated=True)
             with unittest.mock.patch.object(seecast, "annotate", stub):
                 code, out, err = self.run_main([cast])
             doc = json.loads(out)
             self.assertEqual(code, 0)
             self.assertEqual(doc["Annotated"]["output"], os.path.join(tmp, "rec.meta.json"))
             self.assertEqual(doc["Annotated"]["chapters"], 1)
+            self.assertEqual(doc["Annotated"]["warnings"], [], "warnings array is always present")
             self.assertEqual(doc["Annotated"]["meta"]["title"], "T")
             with open(doc["Annotated"]["output"]) as f:
                 self.assertEqual(json.load(f)["title"], "T", "the sidecar landed on disk")
