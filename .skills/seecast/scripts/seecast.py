@@ -12,7 +12,7 @@ so it must run anywhere python3 exists. Tested by seecast/tests/test_seecast.py
 model, and the CLI contract); the cursor-agent path is exercised for real by running it
 on an actual recording.
 
-CLI contract (ENG-PRINCIPLES paragraph 2): data -> stdout, diagnostics -> stderr. In machine
+CLI contract (ENG-PRINCIPLES §2): data -> stdout, diagnostics -> stderr. In machine
 mode (`--json`, or stdout is not a TTY) the result is a two-space-indented single-key JSON
 document with a request-specific variant -- `{ "Annotated": ... }`, `{ "Valid": ... }`,
 `{ "Version": ... }`, or `{ "Error": { message, stage } }` where `stage` is `usage` or
@@ -20,7 +20,7 @@ document with a request-specific variant -- `{ "Annotated": ... }`, `{ "Valid": 
 document itself is the data. Color obeys `--color=never|no` and `NO_COLOR`.
 Exit codes: 0 ok, 1 failure, 2 usage, 130 interrupted (Ctrl+C); a broken pipe ends the
 program quietly. `seecast help exitcodes` prints the full table. External-call discipline
-(paragraph 9): a liveness tick on stderr every ~10 seconds while cursor-agent runs, and a
+(§9): a liveness tick on stderr every ~10 seconds while cursor-agent runs, and a
 hard watchdog (default 180 s) kills it.
 """
 
@@ -169,13 +169,17 @@ def validate_meta(obj, generated=False):
         raise ValueError("unknown fields: %s" % ", ".join(unknown))
     meta = {}
     for field in ("title", "summary"):
-        if field in obj:
-            value = obj[field]
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError("`%s` must be a non-empty string" % field)
-            meta[field] = value.strip()
-        elif generated:
-            raise ValueError("`%s` is required" % field)
+        value = obj.get(field)
+        if value is None:
+            # JSON `null` and an absent key are the same thing to Rust's Option<String>;
+            # mirror that here so a sidecar beecast accepts never fails seecast validation.
+            if generated:
+                raise ValueError("`%s` is required" % field)
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("`%s` must be a non-empty string" % field)
+        meta[field] = value.strip()
+    # An explicit `null` for chapters stays an error: Rust's Vec<Chapter> rejects it too.
     chapters = obj.get("chapters", [])
     if not isinstance(chapters, list):
         raise ValueError("`chapters` must be an array")
@@ -199,6 +203,14 @@ def validate_meta(obj, generated=False):
     if generated and normalized:
         normalized.sort(key=lambda c: c["t"])
         normalized[0]["t"] = 0.0  # the opening segment always gets a marker
+        # The pin (or a sloppy model) can leave tied timekeys, which the strict ascending
+        # check below would reject; collapse a tie to its first chapter — normalization of
+        # generated content, exactly like the pin itself.
+        deduped = [normalized[0]]
+        for ch in normalized[1:]:
+            if ch["t"] > deduped[-1]["t"]:
+                deduped.append(ch)
+        normalized = deduped
     for i in range(len(normalized)):
         if i == 0 and normalized and normalized[0]["t"] != 0.0:
             raise ValueError("the first chapter must start at t = 0, got t = %g" % normalized[0]["t"])
@@ -215,7 +227,9 @@ def validate_meta(obj, generated=False):
 def run_cursor_agent(model, prompt, timeout=DEFAULT_TIMEOUT):
     """Run cursor-agent headless with `prompt`, returning its stdout. Runs in an empty
     temp dir (the prompt is self-contained). Emits a liveness tick on stderr every
-    ~10 s and kills the child past `timeout` — a hung annotation never stalls the caller."""
+    ~10 s and kills the child past `timeout` — a hung annotation never stalls the caller.
+    The child never outlives this function: whatever exits the loop (a result, the
+    watchdog, Ctrl+C), a still-running cursor-agent is killed and reaped on the way out."""
     with tempfile.TemporaryDirectory(prefix="seecast-") as tmp:
         proc = subprocess.Popen(
             ["cursor-agent", "-p", "--force", "--output-format", "text", "--model", model, prompt],
@@ -224,21 +238,24 @@ def run_cursor_agent(model, prompt, timeout=DEFAULT_TIMEOUT):
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-        start = time.monotonic()
-        next_tick = start + LIVENESS_PERIOD
-        while True:
-            try:
-                stdout, _ = proc.communicate(timeout=min(1.0, max(0.0, next_tick - time.monotonic())) + 0.05)
-                return stdout.decode("utf-8", "replace")
-            except subprocess.TimeoutExpired:
-                elapsed = time.monotonic() - start
-                if elapsed >= timeout:
-                    proc.kill()
-                    proc.communicate()
-                    raise RuntimeError("cursor-agent produced no result within %d s and was killed" % timeout)
-                if time.monotonic() >= next_tick:
-                    print("seecast: waiting for cursor-agent (%ds elapsed)" % int(elapsed), file=sys.stderr)
-                    next_tick += LIVENESS_PERIOD
+        try:
+            start = time.monotonic()
+            next_tick = start + LIVENESS_PERIOD
+            while True:
+                try:
+                    stdout, _ = proc.communicate(timeout=min(1.0, max(0.0, next_tick - time.monotonic())) + 0.05)
+                    return stdout.decode("utf-8", "replace")
+                except subprocess.TimeoutExpired:
+                    elapsed = time.monotonic() - start
+                    if elapsed >= timeout:
+                        raise RuntimeError("cursor-agent produced no result within %d s and was killed" % timeout)
+                    if time.monotonic() >= next_tick:
+                        print("seecast: waiting for cursor-agent (%ds elapsed)" % int(elapsed), file=sys.stderr)
+                        next_tick += LIVENESS_PERIOD
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
 
 
 def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cursor_agent):
@@ -246,7 +263,7 @@ def annotate(cast_path, model=DEFAULT_MODEL, timeout=DEFAULT_TIMEOUT, run=run_cu
     `run` is injectable so tests can stub the model call. A watchdog-killed call is
     retried ONCE (announced on stderr): cursor-agent occasionally stalls on startup and
     then answers a fresh call within seconds, so one retry turns a flaky external into a
-    reliable command without hiding that anything happened (paragraph 9)."""
+    reliable command without hiding that anything happened (§9)."""
     with open(cast_path, "r", encoding="utf-8", errors="replace") as f:
         text = transcript(f.read())
     if not text.strip():
@@ -269,7 +286,7 @@ def fail(message, code=1, stage="request", machine=None, color="auto"):
     if machine is None:
         machine = not sys.stdout.isatty()
     if machine:
-        print(json.dumps({"Error": {"message": message, "stage": stage}}, indent=2))
+        print(json.dumps({"Error": {"message": message, "stage": stage}}, indent=2, ensure_ascii=False))
     else:
         colored = color not in ("never", "no") and os.environ.get("NO_COLOR") is None and sys.stderr.isatty()
         prefix = "\x1b[1;31merror:\x1b[0m" if colored else "error:"
@@ -396,8 +413,9 @@ def main(argv=None):
         # The write narration rides inside the document (machine-mode stderr stays quiet).
         emit("Annotated", {"output": out_path, "chapters": len(meta.get("chapters", [])), "meta": meta})
     else:
-        print("wrote %s (%d chapters)" % (out_path, len(meta.get("chapters", []))), file=sys.stderr)
-        sys.stdout.write(sidecar_json)
+        # Human mode: the result line IS the output — raw JSON stays in the file and the
+        # explicit stream modes, per the module docstring.
+        print("wrote %s (%d chapters)" % (out_path, len(meta.get("chapters", []))))
 
 
 def entry():
