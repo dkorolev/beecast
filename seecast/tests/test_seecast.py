@@ -77,6 +77,17 @@ class Transcript(unittest.TestCase):
         with self.assertRaises(ValueError):
             seecast.transcript('{"version":1,"stdout":[]}\n')
 
+    def test_empty_file_is_not_an_asciicast(self):
+        # beecast exits 1 on an empty .cast; a silent empty transcript would diverge.
+        for empty in ("", "\n\n  \n"):
+            with self.assertRaises(ValueError):
+                seecast.transcript(empty)
+
+    def test_leading_blank_lines_are_skipped_like_the_rust_parser(self):
+        # A recording beecast can play (its parser skips blanks) must annotate too.
+        t = seecast.transcript("\n\n" + V2)
+        self.assertIn("[0.5s] hello", t)
+
 
 class ValidateMeta(unittest.TestCase):
     def test_generated_sorts_and_pins_first_to_zero(self):
@@ -114,6 +125,25 @@ class ValidateMeta(unittest.TestCase):
         with self.assertRaises(ValueError):
             seecast.validate_meta({"chapters": [{"t": 0, "title": "A"}, {"t": 0, "title": "tie"}]})
 
+    def test_oversized_timekey_is_the_contract_error_not_a_traceback(self):
+        # math.isfinite on an int too large for a float raises OverflowError, which would
+        # escape the ValueError contract; the guard must convert first.
+        with self.assertRaises(ValueError):
+            seecast.validate_meta({"chapters": [{"t": 10**400, "title": "A"}]})
+
+    def test_require_all_gates_the_generated_shape_without_normalizing(self):
+        full = {"title": "T", "summary": "S.", "chapters": [{"t": 0, "title": "A"}]}
+        self.assertEqual(seecast.validate_meta(full, require_all=True)["title"], "T")
+        for partial in ({}, {"title": "T", "summary": "S."}, {"title": "T", "chapters": [{"t": 0, "title": "A"}]}):
+            with self.assertRaises(ValueError):
+                seecast.validate_meta(partial, require_all=True)
+        # Crucially, NO normalization: a first chapter off zero must fail, not be re-pinned —
+        # this validates a file already on disk, which beecast will read as-is.
+        with self.assertRaises(ValueError):
+            seecast.validate_meta(
+                {"title": "T", "summary": "S.", "chapters": [{"t": 5, "title": "late"}]}, require_all=True
+            )
+
     def test_null_means_absent_like_the_rust_types(self):
         # Rust's Option<String> parses `null` and an absent key identically; so does this.
         self.assertEqual(seecast.validate_meta({"title": None, "summary": None}), {})
@@ -149,6 +179,12 @@ class ExtractJson(unittest.TestCase):
         self.assertEqual(obj, {"title": "T"})
         with self.assertRaises(ValueError):
             seecast.extract_json("no json here")
+
+    def test_rejects_duplicate_keys_like_serde(self):
+        # json.loads keeps the last duplicate silently; serde rejects it. Certifying what
+        # beecast then refuses would break the pipeline, so the hook mirrors serde.
+        with self.assertRaises(ValueError):
+            seecast.extract_json('{"title": "", "title": "ok"}')
 
 
 class Annotate(unittest.TestCase):
@@ -277,6 +313,28 @@ class CliContract(unittest.TestCase):
         self.assertEqual(self.run_main(["help"])[0], 0)
         self.assertEqual(self.run_main(["help", "bogus"])[0], 2)
 
+    def test_global_flags_may_precede_help(self):
+        # `seecast --json help exitcodes` is the same command, not a file named `help`.
+        code, out, err = self.run_main(["--json", "help", "exitcodes"])
+        self.assertEqual(code, 0)
+        self.assertIn("130", out)
+        self.assertEqual(self.run_main(["--color", "never", "help"])[0], 0)
+        self.assertEqual(self.run_main(["--color=never", "--json", "help"])[0], 0)
+
+    def test_parser_error_honors_the_passed_argv(self):
+        # A library caller's --json must shape the usage error even at a real TTY;
+        # Parser.error must read the argv main() was given, not the process's sys.argv.
+        class Tty(io.StringIO):
+            def isatty(self):
+                return True
+
+        out, err = Tty(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit) as ctx:
+                seecast.main(["--json", "--bogus-flag"])
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertEqual(json.loads(out.getvalue())["Error"]["stage"], "usage")
+
     def test_json_and_color_flags_are_accepted(self):
         # `--json` forces machine mode (redundant here, since a captured stdout already is);
         # `--color=never` parses and cannot break machine output.
@@ -304,6 +362,35 @@ class CliContract(unittest.TestCase):
             code, out, err = self.run_main(["--validate", sidecar])
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out), {"Valid": {"path": sidecar}})
+
+    def test_validate_rejects_duplicate_keys_and_gates_generated_shape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dup = os.path.join(tmp, "dup.meta.json")
+            with open(dup, "w") as f:
+                f.write('{"title": "", "title": "ok", "chapters": [{"t": 0, "title": "A"}]}')
+            code, out, err = self.run_main(["--validate", dup])
+            self.assertEqual(code, 1, "a sidecar serde would reject must not be certified")
+            self.assertIn("duplicate field", json.loads(out)["Error"]["message"])
+
+            partial = os.path.join(tmp, "partial.meta.json")
+            with open(partial, "w") as f:
+                f.write("{}")
+            self.assertEqual(self.run_main(["--validate", partial])[0], 0, "plain mode: all optional")
+            code, out, err = self.run_main(["--validate", partial, "--generated"])
+            self.assertEqual(code, 1, "--generated requires the full annotation shape")
+
+    def test_unwritable_output_is_the_contract_error(self):
+        reply = {"title": "T", "summary": "S.", "chapters": [{"t": 0.0, "title": "A"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V3)
+            with unittest.mock.patch.object(seecast, "annotate", lambda *a, **k: reply):
+                code, out, err = self.run_main([cast, "-o", os.path.join(tmp, "no-such-dir", "x.meta.json")])
+        self.assertEqual(code, 1)
+        doc = json.loads(out)
+        self.assertIn("cannot write", doc["Error"]["message"])
+        self.assertEqual(doc["Error"]["stage"], "request")
 
     def test_annotate_wraps_the_write_in_an_annotated_document(self):
         reply = '{"title": "T", "summary": "S.", "chapters": [{"t": 0, "title": "A"}]}'

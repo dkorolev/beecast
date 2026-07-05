@@ -32,6 +32,7 @@ The timekey `t` is fractional seconds; chapters are strictly ascending and the f
 ./seecast <recording.cast> [-o <meta.json>] [--model composer-2.5-fast] [--timeout 180]
 ./seecast --transcript <recording.cast>     # print the compact transcript and stop
 ./seecast --validate <meta.json>            # validate a sidecar against the schema and stop
+./seecast --validate <meta.json> --generated  # also require title, summary, and chapters
 ./seecast --version                         # works offline
 ./seecast help exitcodes                    # print the exit-code table
 ```

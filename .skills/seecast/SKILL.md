@@ -32,10 +32,10 @@ Produce the cast metadata JSON for the recording at `$CAST`. You are the annotat
 
 3. Write the object to `$SCSH_RESULT` as a real file on disk (two-space indented JSON) — do not only print it.
 
-4. Verify, and fix + re-verify if it fails:
+4. Verify, and fix + re-verify if it fails (`--generated` requires all three keys and at least one chapter, so an empty or partial result cannot pass):
 
    ```
-   python3 .skills/seecast/scripts/seecast.py --validate "$SCSH_RESULT"
+   python3 .skills/seecast/scripts/seecast.py --validate "$SCSH_RESULT" --generated
    ```
 
 5. **Stop.** Do not commit, push, build, or edit anything except the result file.

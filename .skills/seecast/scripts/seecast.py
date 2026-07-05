@@ -78,17 +78,21 @@ def iter_output_events(cast_ndjson):
     recording. v2 stamps are absolute; v3 stamps are intervals since the previous event
     and get accumulated. Unparseable lines (e.g. a truncated live tail) are skipped."""
     lines = cast_ndjson.splitlines()
-    if not lines:
-        return
+    # The header is the first non-empty line, exactly like the Rust parser (cast.rs) — a
+    # recording beecast can play must never be one seecast refuses to annotate. An empty
+    # file is not an asciicast, not an empty transcript.
+    header_index = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if header_index is None:
+        raise ValueError("not an asciicast: the file is empty")
     try:
-        header = json.loads(lines[0])
+        header = json.loads(lines[header_index])
         version = int(header.get("version", 0))
     except (ValueError, TypeError, AttributeError):
         raise ValueError("not an asciicast: the first line is not a JSON header")
     if version not in (2, 3):
         raise ValueError("asciicast v%s is not supported (v2 and v3 are)" % version)
     clock = 0.0
-    for line in lines[1:]:
+    for line in lines[header_index + 1 :]:
         line = line.strip()
         if not line:
             continue
@@ -144,16 +148,28 @@ def build_prompt(transcript_text):
     )
 
 
+def reject_duplicate_keys(pairs):
+    """`object_pairs_hook` that refuses duplicated JSON keys. Python's json module keeps
+    the last duplicate silently; serde (the Rust side) rejects them — so without this,
+    seecast would certify sidecars that beecast then refuses to build."""
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise ValueError("duplicate field `%s`" % key)
+        obj[key] = value
+    return obj
+
+
 def extract_json(reply):
     """Take the first `{` .. last `}` slice of a model reply (which may wrap the JSON in
     prose or a code fence despite instructions) and parse it. Raises ValueError."""
     start, end = reply.find("{"), reply.rfind("}")
     if start < 0 or end < start:
         raise ValueError("the reply contains no JSON object")
-    return json.loads(reply[start : end + 1])
+    return json.loads(reply[start : end + 1], object_pairs_hook=reject_duplicate_keys)
 
 
-def validate_meta(obj, generated=False):
+def validate_meta(obj, generated=False, require_all=False):
     """Validate `obj` against the cast-metadata schema and return it normalized.
 
     Strict, mirroring beecast's parser: unknown keys anywhere, wrong types, empty strings,
@@ -161,6 +177,9 @@ def validate_meta(obj, generated=False):
     With `generated=True` (a model reply about to become a sidecar) two normalizations
     are applied first — chapters are sorted by `t` and the first one is pinned to 0,
     YouTube-style — and title/summary/chapters are all required, not optional.
+    With `require_all=True` the three fields are required but NOTHING is normalized: the
+    shape a finished generated sidecar must already have, used to gate files on disk
+    (a gate that silently re-sorted or re-pinned would pass files beecast then rejects).
     """
     if not isinstance(obj, dict):
         raise ValueError("the metadata must be a JSON object")
@@ -173,7 +192,7 @@ def validate_meta(obj, generated=False):
         if value is None:
             # JSON `null` and an absent key are the same thing to Rust's Option<String>;
             # mirror that here so a sidecar beecast accepts never fails seecast validation.
-            if generated:
+            if generated or require_all:
                 raise ValueError("`%s` is required" % field)
             continue
         if not isinstance(value, str) or not value.strip():
@@ -183,7 +202,7 @@ def validate_meta(obj, generated=False):
     chapters = obj.get("chapters", [])
     if not isinstance(chapters, list):
         raise ValueError("`chapters` must be an array")
-    if generated and not chapters:
+    if (generated or require_all) and not chapters:
         raise ValueError("at least one chapter is required")
     normalized = []
     for i, ch in enumerate(chapters):
@@ -195,11 +214,19 @@ def validate_meta(obj, generated=False):
         if "t" not in ch or "title" not in ch:
             raise ValueError("chapter %d: `t` and `title` are both required" % i)
         t, title = ch["t"], ch["title"]
-        if isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t) or t < 0:
+        if isinstance(t, bool) or not isinstance(t, (int, float)):
+            raise ValueError("chapter %d: `t` must be a finite number of seconds >= 0" % i)
+        try:
+            # An int too large for a float would make math.isfinite raise OverflowError,
+            # escaping the ValueError contract; convert first and catch the overflow.
+            t = float(t)
+        except OverflowError:
+            raise ValueError("chapter %d: `t` must be a finite number of seconds >= 0" % i)
+        if not math.isfinite(t) or t < 0:
             raise ValueError("chapter %d: `t` must be a finite number of seconds >= 0" % i)
         if not isinstance(title, str) or not title.strip():
             raise ValueError("chapter %d: `title` must be a non-empty string" % i)
-        normalized.append({"t": float(t), "title": title.strip()})
+        normalized.append({"t": t, "title": title.strip()})
     if generated and normalized:
         normalized.sort(key=lambda c: c["t"])
         normalized[0]["t"] = 0.0  # the opening segment always gets a marker
@@ -317,11 +344,16 @@ EXITCODES = (
 class Parser(argparse.ArgumentParser):
     """argparse whose usage errors follow the same contract as every other failure: exit 2,
     human prose on stderr at a TTY, an `{ "Error": ... }` JSON document on stdout otherwise
-    (stock argparse prints bare prose to stderr in both modes)."""
+    (stock argparse prints bare prose to stderr in both modes). `main` stores the argv it
+    was actually given in `raw_argv`, so a library caller's `--json` is honored too — not
+    just the process's own sys.argv."""
+
+    raw_argv = None
 
     def error(self, message):
         # Flags are not parsed yet when argparse errors, so `--json` is sniffed raw.
-        machine = "--json" in sys.argv[1:] or not sys.stdout.isatty()
+        raw = self.raw_argv if self.raw_argv is not None else sys.argv[1:]
+        machine = "--json" in raw or not sys.stdout.isatty()
         if not machine:
             self.print_usage(sys.stderr)
         fail(message, code=2, stage="usage", machine=machine)
@@ -353,12 +385,30 @@ def main(argv=None):
         "--transcript", action="store_true", help="print the compact transcript and stop (no model call)"
     )
     parser.add_argument("--validate", metavar="META_JSON", help="validate a sidecar file against the schema and stop")
+    parser.add_argument(
+        "--generated",
+        action="store_true",
+        help="with --validate: also require title, summary, and at least one chapter — "
+        "the shape a generated sidecar must have (used as the scsh skill's pass gate)",
+    )
+
+    raw = sys.argv[1:] if argv is None else list(argv)
+    parser.raw_argv = raw
 
     # `help [topic]` dispatch (matches beecast): `help` prints full help, `help exitcodes`
     # prints the table. Intercepted before parse_args, since `help` is not an argparse arg.
-    raw = sys.argv[1:] if argv is None else list(argv)
-    if raw and raw[0] == "help":
-        topic = raw[1] if len(raw) > 1 else None
+    # Global flags may precede the command — `seecast --json help exitcodes` is the same
+    # invocation — so skip them when looking for it.
+    rest = list(raw)
+    while rest:
+        if rest[0] == "--json" or rest[0].startswith("--color="):
+            rest.pop(0)
+        elif rest[0] == "--color" and len(rest) > 1:
+            del rest[:2]
+        else:
+            break
+    if rest and rest[0] == "help":
+        topic = rest[1] if len(rest) > 1 else None
         if topic is None:
             parser.print_help()
         elif topic == "exitcodes":
@@ -380,7 +430,8 @@ def main(argv=None):
     if args.validate:
         try:
             with open(args.validate, "r", encoding="utf-8") as f:
-                validate_meta(json.load(f))
+                # The duplicate-key hook mirrors serde's strictness (see reject_duplicate_keys).
+                validate_meta(json.load(f, object_pairs_hook=reject_duplicate_keys), require_all=args.generated)
         except (OSError, ValueError) as e:
             fail("invalid metadata in `%s`: %s" % (args.validate, e), machine=machine, color=args.color)
         if machine:
@@ -407,8 +458,13 @@ def main(argv=None):
         sys.stdout.write(sidecar_json)
         return
     out_path = args.output or os.path.splitext(args.cast)[0] + ".meta.json"
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(sidecar_json)
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(sidecar_json)
+    except OSError as e:
+        # An unwritable path must be the contract error, not a traceback — especially
+        # here, after the paid annotation has already succeeded.
+        fail("cannot write `%s`: %s" % (out_path, e), machine=machine, color=args.color)
     if machine:
         # The write narration rides inside the document (machine-mode stderr stays quiet).
         emit("Annotated", {"output": out_path, "chapters": len(meta.get("chapters", [])), "meta": meta})
