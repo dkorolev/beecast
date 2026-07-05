@@ -3,7 +3,9 @@ name = "beecast"
 version = "0.1.0"
 edition = "2021"
 description = "Browser Cast — turn an asciinema .cast recording into a single self-contained .html player page."
-license = "MIT"
+# BeeCast's own code is MIT, while the vendored and inlined asciinema-player is Apache-2.0.
+# The crate ships both, and every generated page embeds both, so the SPDX expression names both.
+license = "MIT AND Apache-2.0"
 repository = "https://github.com/dkorolev/beecast"
 readme = "README.md"
 keywords = ["asciinema", "terminal", "recording", "cast", "player"]
