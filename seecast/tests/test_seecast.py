@@ -114,6 +114,34 @@ class ValidateMeta(unittest.TestCase):
         with self.assertRaises(ValueError):
             seecast.validate_meta({"chapters": [{"t": 0, "title": "A"}, {"t": 0, "title": "tie"}]})
 
+    def test_null_means_absent_like_the_rust_types(self):
+        # Rust's Option<String> parses `null` and an absent key identically; so does this.
+        self.assertEqual(seecast.validate_meta({"title": None, "summary": None}), {})
+        with self.assertRaises(ValueError):  # generated: absent (incl. null) is still required
+            seecast.validate_meta(
+                {"title": None, "summary": "S.", "chapters": [{"t": 0, "title": "A"}]}, generated=True
+            )
+        with self.assertRaises(ValueError):  # but Vec<Chapter> rejects an explicit null, so we do too
+            seecast.validate_meta({"chapters": None})
+
+    def test_generated_collapses_tied_timekeys(self):
+        # Tied timekeys in a generated reply collapse to their first chapter instead of failing.
+        meta = seecast.validate_meta(
+            {"title": "T", "summary": "S.", "chapters": [{"t": 0, "title": "A"}, {"t": 0, "title": "B"}]},
+            generated=True,
+        )
+        self.assertEqual(meta["chapters"], [{"t": 0.0, "title": "A"}])
+        # The sort is stable, so a mid-list tie keeps whichever chapter the model said first.
+        meta = seecast.validate_meta(
+            {
+                "title": "T",
+                "summary": "S.",
+                "chapters": [{"t": 7.0, "title": "C"}, {"t": 0.0, "title": "A"}, {"t": 7.0, "title": "B"}],
+            },
+            generated=True,
+        )
+        self.assertEqual(meta["chapters"], [{"t": 0.0, "title": "A"}, {"t": 7.0, "title": "C"}])
+
 
 class ExtractJson(unittest.TestCase):
     def test_unwraps_prose_and_fences(self):
@@ -177,6 +205,30 @@ class Annotate(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(RuntimeError, msg="the second failure is final"):
                     seecast.annotate(cast, run=always_dead)
+
+
+    def test_interrupt_kills_a_running_cursor_agent(self):
+        # Ctrl+C mid-wait must not orphan the child: the finally block kills and reaps it.
+        class FakeProc:
+            def __init__(self):
+                self.killed = False
+
+            def communicate(self, timeout=None):
+                if not self.killed:
+                    raise KeyboardInterrupt
+                return (b"", b"")
+
+            def poll(self):
+                return None if not self.killed else 0
+
+            def kill(self):
+                self.killed = True
+
+        fake = FakeProc()
+        with unittest.mock.patch.object(seecast.subprocess, "Popen", return_value=fake):
+            with self.assertRaises(KeyboardInterrupt):
+                seecast.run_cursor_agent("model", "prompt", timeout=5)
+        self.assertTrue(fake.killed, "the child must be killed on the way out")
 
 
 class SchemaMirror(unittest.TestCase):
@@ -281,6 +333,26 @@ class CliContract(unittest.TestCase):
                 code, out, err = self.run_main([cast, "-o", "-"])
             self.assertEqual(json.loads(out), reply, "explicit stream mode: no envelope")
             self.assertFalse(os.path.exists(os.path.join(tmp, "rec.meta.json")), "stdout only")
+
+    def test_human_mode_prints_prose_not_json(self):
+        # A TTY-shaped stdout gets the human result line; raw sidecar JSON stays in the file.
+        class Tty(io.StringIO):
+            def isatty(self):
+                return True
+
+        reply = {"title": "T", "summary": "S.", "chapters": [{"t": 0.0, "title": "A"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            cast = os.path.join(tmp, "rec.cast")
+            with open(cast, "w") as f:
+                f.write(V3)
+            out, err = Tty(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                with unittest.mock.patch.object(seecast, "annotate", lambda *a, **k: reply):
+                    seecast.main([cast])
+            self.assertIn("wrote", out.getvalue())
+            self.assertNotIn('"chapters"', out.getvalue(), "no raw JSON on a human's stdout")
+            with open(os.path.join(tmp, "rec.meta.json")) as f:
+                self.assertEqual(json.load(f), reply, "the sidecar itself lives in the file")
 
     def test_keyboard_interrupt_exits_130_without_a_traceback(self):
         with unittest.mock.patch.object(seecast, "main", side_effect=KeyboardInterrupt):
