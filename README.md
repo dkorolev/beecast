@@ -90,4 +90,4 @@ cargo test && cargo test --release
 
 ## License
 
-MIT. The vendored asciinema-player is Apache-2.0 (© the asciinema-player authors); see `src/vendor/README.md`.
+BeeCast's own code is MIT (see [`LICENSE`](LICENSE)). The vendored, inlined asciinema-player is Apache-2.0 (© the asciinema-player authors) — its full text ships as `src/vendor/LICENSE-APACHE-2.0`, and it is redistributed unmodified. The crate's SPDX license is therefore `MIT AND Apache-2.0`; see [`src/vendor/README.md`](src/vendor/README.md).
