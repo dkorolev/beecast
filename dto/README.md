@@ -22,4 +22,4 @@ The human-readable rendering of the shape is [`SCHEMA.md`](SCHEMA.md).
 
 ## License
 
-MIT.
+MIT (text in [`LICENSE`](LICENSE), shipped with the crate).

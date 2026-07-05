@@ -9,9 +9,9 @@ repository.workspace = true
 readme = "README.md"
 keywords = ["asciinema", "cast", "metadata", "schema", "dto"]
 categories = ["data-structures", "parser-implementations"]
-# Ship the generated schema and its human rendering next to the source, so the crate is self-contained.
+# Ship the generated schema, its human rendering, and the license text next to the source, so the crate is self-contained.
 # `include_str!` embeds the schema file for the byte-for-byte pin test, and SCHEMA.md documents the shape.
-include = ["/src/", "/schema/", "/README.md", "/SCHEMA.md"]
+include = ["/src/", "/schema/", "/README.md", "/SCHEMA.md", "/LICENSE"]
 
 [dependencies]
 serde.workspace = true
