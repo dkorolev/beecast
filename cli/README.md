@@ -77,4 +77,4 @@ cargo install --path cli                                   # from a checkout (wo
 
 ## License
 
-BeeCast's own code is MIT (see the repo-root [`LICENSE`](../LICENSE)). The vendored, inlined asciinema-player is Apache-2.0 (© the asciinema-player authors) — its full text ships as [`src/vendor/LICENSE-APACHE-2.0`](src/vendor/LICENSE-APACHE-2.0), and it is redistributed unmodified. This crate's SPDX license is therefore `MIT AND Apache-2.0`; see [`src/vendor/README.md`](src/vendor/README.md).
+BeeCast's own code is MIT (text in [`LICENSE`](LICENSE), shipped with the crate). The vendored, inlined asciinema-player is Apache-2.0 (© the asciinema-player authors) — its full text ships as [`src/vendor/LICENSE-APACHE-2.0`](src/vendor/LICENSE-APACHE-2.0), and it is redistributed unmodified. This crate's SPDX license is therefore `MIT AND Apache-2.0`; see [`src/vendor/README.md`](src/vendor/README.md).

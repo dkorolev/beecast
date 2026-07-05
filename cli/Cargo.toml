@@ -11,9 +11,10 @@ readme = "README.md"
 license = "MIT AND Apache-2.0"
 keywords = ["asciinema", "terminal", "cast", "player", "html"]
 categories = ["command-line-utilities"]
-# The published crate is the CLI: its sources (with the vendored player and page template) and its README.
+# The published crate is the CLI: its sources (with the vendored player and page template), its README, and both license texts.
+# MIT ships as /LICENSE and the vendored player's Apache-2.0 under /src/vendor/, matching the SPDX expression.
 # The test suite and fixtures stay repo-only.
-include = ["/src/", "/README.md"]
+include = ["/src/", "/README.md", "/LICENSE"]
 
 [[bin]]
 name = "beecast"
