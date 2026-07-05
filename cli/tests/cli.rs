@@ -13,11 +13,28 @@ fn fixture(name: &str) -> PathBuf {
   Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)
 }
 
-fn tempdir(tag: &str) -> PathBuf {
+/// A per-test scratch directory that cleans itself up on drop, so a panicking test
+/// (a failed assertion) does not leak directories under the system temp dir.
+struct TempDir(PathBuf);
+
+impl std::ops::Deref for TempDir {
+  type Target = Path;
+  fn deref(&self) -> &Path {
+    &self.0
+  }
+}
+
+impl Drop for TempDir {
+  fn drop(&mut self) {
+    let _ = std::fs::remove_dir_all(&self.0);
+  }
+}
+
+fn tempdir(tag: &str) -> TempDir {
   let dir = std::env::temp_dir().join(format!("beecast-cli-{tag}-{}", std::process::id()));
-  let _ = std::fs::remove_dir_all(&dir);
+  let _ = std::fs::remove_dir_all(&dir); // a stale dir from an older, crashed run
   std::fs::create_dir_all(&dir).unwrap();
-  dir
+  TempDir(dir)
 }
 
 #[test]
@@ -42,7 +59,6 @@ fn build_discovers_the_sidecar_and_reports_json_ok() {
   assert!(html.contains("<title>Sample session</title>"));
   assert!(html.contains("Echoes a greeting"));
   assert!(html.contains("\"title\":\"The build\""));
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -54,7 +70,6 @@ fn build_streams_html_to_stdout_with_dash_output() {
   let html = String::from_utf8_lossy(&out.stdout);
   assert!(html.starts_with("<!DOCTYPE html>"), "data (the page itself) goes to stdout");
   assert!(html.contains("<title>s.cast</title>"), "no sidecar: the filename is the title");
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -68,7 +83,6 @@ fn invalid_metadata_fails_with_a_json_error_and_exit_1() {
   assert!(v["Error"]["message"].as_str().unwrap().contains("first chapter must start at t = 0"));
   assert_eq!(v["Error"]["stage"], "request", "run failures are stage=request");
   assert!(!dir.join("s.html").exists(), "no output written on failure");
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -87,7 +101,6 @@ fn chapter_past_the_end_warns_in_both_channels() {
   assert!(warning.contains("past the end"), "got: {warning}");
   // …and on stderr too — a warning only in the JSON is invisible to humans.
   assert!(String::from_utf8_lossy(&out.stderr).contains("past the end"));
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -98,7 +111,24 @@ fn junk_input_fails_and_usage_errors_exit_2() {
   assert_eq!(beecast(&["frobnicate"], &dir).status.code(), Some(2));
   assert_eq!(beecast(&["build"], &dir).status.code(), Some(2));
   assert_eq!(beecast(&["build", "a.cast", "--wat"], &dir).status.code(), Some(2));
-  let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn explicit_meta_flag_is_used_and_must_exist() {
+  let dir = tempdir("meta");
+  std::fs::copy(fixture("sample.cast"), dir.join("s.cast")).unwrap();
+  std::fs::copy(fixture("sample.meta.json"), dir.join("custom.json")).unwrap();
+  let out = beecast(&["build", "s.cast", "--meta", "custom.json"], &dir);
+  assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+  let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+  assert_eq!(v["Built"]["chapters"], 2);
+  assert!(v["Built"]["meta"].as_str().unwrap().contains("custom.json"));
+  // Unlike the optional implicit `<recording>.meta.json`, an explicit `--meta` that does
+  // not exist is a hard error — the caller named a file and must not silently lose it.
+  let missing = beecast(&["build", "s.cast", "--meta", "nope.json"], &dir);
+  assert_eq!(missing.status.code(), Some(1));
+  let e: serde_json::Value = serde_json::from_slice(&missing.stdout).unwrap();
+  assert!(e["Error"]["message"].as_str().unwrap().contains("nope.json"));
 }
 
 #[test]
@@ -112,7 +142,6 @@ fn machine_invocations_must_use_the_canonical_command() {
   assert!(v["Error"]["message"].as_str().unwrap().contains("beecast build s.cast"));
   assert_eq!(v["Error"]["stage"], "usage", "wrong invocations are stage=usage");
   assert!(!dir.join("s.html").exists());
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Piping into `head` must end the program quietly (§2): a broken pipe is a clean exit,
@@ -128,7 +157,7 @@ fn broken_pipe_dies_quietly_without_a_panic() {
   std::fs::copy(fixture("sample.cast"), dir.join("s.cast")).unwrap();
   let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_beecast"))
     .args(["build", "s.cast", "-o", "-"])
-    .current_dir(&dir)
+    .current_dir(&*dir)
     .stdout(Stdio::piped())
     .stderr(Stdio::piped())
     .spawn()
@@ -138,7 +167,6 @@ fn broken_pipe_dies_quietly_without_a_panic() {
   assert_eq!(out.status.code(), Some(0), "a broken pipe is a clean exit, status: {:?}", out.status);
   let stderr = String::from_utf8_lossy(&out.stderr);
   assert!(!stderr.contains("panicked"), "no traceback on a broken pipe, got: {stderr}");
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -148,7 +176,6 @@ fn schema_prints_the_shipped_json_schema() {
   assert!(out.status.success());
   let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
   assert_eq!(v["properties"]["chapters"]["items"]["required"], serde_json::json!(["t", "title"]));
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -160,7 +187,6 @@ fn help_and_version_work() {
   let ver = beecast(&["version"], &dir);
   let v: serde_json::Value = serde_json::from_slice(&ver.stdout).unwrap();
   assert_eq!(v["Version"]["version"], env!("CARGO_PKG_VERSION"));
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -176,7 +202,6 @@ fn global_json_and_color_flags_are_accepted_anywhere() {
   assert_eq!(bad.status.code(), Some(2));
   let e: serde_json::Value = serde_json::from_slice(&bad.stdout).unwrap();
   assert!(e["Error"]["message"].as_str().unwrap().contains("supported: auto, never, no"));
-  let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
@@ -189,5 +214,4 @@ fn schema_command_matches_the_shipped_file() {
   let shipped =
     std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../dto/schema/beecast-meta.schema.json")).unwrap();
   assert_eq!(out.stdout, shipped, "run `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`");
-  let _ = std::fs::remove_dir_all(&dir);
 }
