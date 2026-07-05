@@ -19,8 +19,9 @@ document with a request-specific variant -- `{ "Annotated": ... }`, `{ "Valid": 
 `request` -- except in the explicit stream modes (`--transcript`, `-o -`), where the
 document itself is the data. Color obeys `--color=never|no` and `NO_COLOR`.
 Exit codes: 0 ok, 1 failure, 2 usage, 130 interrupted (Ctrl+C); a broken pipe ends the
-program quietly. External-call discipline (paragraph 9): a liveness tick on stderr every
-~10 seconds while cursor-agent runs, and a hard watchdog (default 180 s) kills it.
+program quietly. `seecast help exitcodes` prints the full table. External-call discipline
+(paragraph 9): a liveness tick on stderr every ~10 seconds while cursor-agent runs, and a
+hard watchdog (default 180 s) kills it.
 """
 
 import argparse
@@ -282,6 +283,20 @@ def emit(variant, payload):
     print(json.dumps({variant: payload}, indent=2, ensure_ascii=False))
 
 
+# The exit-code table (ENG-PRINCIPLES §2). Single source: `seecast help exitcodes` prints
+# it, and the argparse epilog points here rather than restating it.
+EXITCODES = (
+    "Exit codes:\n"
+    "  0    success\n"
+    "  1    failure (unreadable recording, invalid metadata, model/validation error)\n"
+    "  2    usage (unknown flag, missing argument, bad --color mode)\n"
+    "  130  interrupted (Ctrl+C / SIGINT)\n"
+    "A broken pipe (e.g. `seecast --transcript rec.cast | head`) ends the program quietly, "
+    "per SIGPIPE convention.\n"
+    "Machine-mode errors also carry a `stage` field (`usage` or `request`) for scripts to branch on."
+)
+
+
 class Parser(argparse.ArgumentParser):
     """argparse whose usage errors follow the same contract as every other failure: exit 2,
     human prose on stderr at a TTY, an `{ "Error": ... }` JSON document on stdout otherwise
@@ -300,9 +315,8 @@ def main(argv=None):
         prog="seecast",
         description="Annotate an asciinema .cast recording with { title, summary, chapters } "
         "metadata (see SCHEMA.md), via cursor-agent on Composer Fast.",
-        epilog="exit codes: 0 ok, 1 failure, 2 usage, 130 interrupted (Ctrl+C); "
-        "a broken pipe ends the program quietly. When stdout is not a TTY, results are "
-        "single-key JSON documents (see SCHEMA.md and the module docstring).",
+        epilog="`seecast help exitcodes` prints the exit-code table. When stdout is not a "
+        "TTY, results are single-key JSON documents (see SCHEMA.md and the module docstring).",
     )
     parser.add_argument("cast", nargs="?", help="the .cast recording (asciicast v2 or v3)")
     parser.add_argument("--version", action="store_true", help="print the version and exit (works offline)")
@@ -322,6 +336,20 @@ def main(argv=None):
         "--transcript", action="store_true", help="print the compact transcript and stop (no model call)"
     )
     parser.add_argument("--validate", metavar="META_JSON", help="validate a sidecar file against the schema and stop")
+
+    # `help [topic]` dispatch (matches beecast): `help` prints full help, `help exitcodes`
+    # prints the table. Intercepted before parse_args, since `help` is not an argparse arg.
+    raw = sys.argv[1:] if argv is None else list(argv)
+    if raw and raw[0] == "help":
+        topic = raw[1] if len(raw) > 1 else None
+        if topic is None:
+            parser.print_help()
+        elif topic == "exitcodes":
+            print(EXITCODES)
+        else:
+            parser.error("unknown help topic `%s` (topics: exitcodes)" % topic)
+        return
+
     args = parser.parse_args(argv)
     machine = args.json or not sys.stdout.isatty()
 

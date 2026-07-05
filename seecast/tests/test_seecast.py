@@ -216,6 +216,15 @@ class CliContract(unittest.TestCase):
         self.assertEqual(json.loads(out), {"Version": {"version": seecast.VERSION}})
         self.assertEqual(err, "", "machine-mode stderr stays quiet")
 
+    def test_help_exitcodes_prints_the_table(self):
+        code, out, err = self.run_main(["help", "exitcodes"])
+        self.assertEqual(code, 0)
+        for token in ("0", "1", "2", "130", "stage", "SIGPIPE"):
+            self.assertIn(token, out, "exit-code table must mention %r" % token)
+        # A bare `help` prints full usage; an unknown topic is a usage error.
+        self.assertEqual(self.run_main(["help"])[0], 0)
+        self.assertEqual(self.run_main(["help", "bogus"])[0], 2)
+
     def test_json_and_color_flags_are_accepted(self):
         # `--json` forces machine mode (redundant here, since a captured stdout already is);
         # `--color=never` parses and cannot break machine output.
