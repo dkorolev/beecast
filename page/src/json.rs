@@ -1,10 +1,16 @@
-//! A std-only JSON reader — the reason this crate can promise zero dependencies. It covers the
-//! full JSON grammar with `serde_json`'s strict semantics, because the pipeline was born on serde
-//! and must keep behaving identically: escape validation including UTF-16 surrogate pairs,
-//! duplicate object keys resolved last-wins, numbers that remember whether their literal was a
-//! bare unsigned integer (serde's `as_u64` contract: `2` qualifies, `2.0` does not), rejection of
-//! literals that overflow to infinity (`1e999`), and serde's default 128-level nesting cap so a
-//! hostile input fails cleanly instead of blowing the stack.
+//! A std-only JSON reader and writer — the reason this crate can promise zero dependencies.
+//!
+//! The reader covers the full JSON grammar with `serde_json`'s strict semantics, because the
+//! pipeline was born on serde and must keep behaving identically: escape validation including
+//! UTF-16 surrogate pairs, duplicate object keys resolved last-wins, numbers that remember whether
+//! their literal was a bare unsigned integer (serde's `as_u64` contract: `2` qualifies, `2.0` does
+//! not), rejection of literals that overflow to infinity (`1e999`), and serde's default 128-level
+//! nesting cap so a hostile input fails cleanly instead of blowing the stack.
+//!
+//! The writer reproduces `serde_json`'s output byte-for-byte — the same escape table and the same
+//! shortest-round-trip float notation — so a page rendered through this crate is identical to one
+//! rendered by the serde-backed original; a differential test in the `beecast` CLI suite pins that
+//! against serde itself.
 
 /// The subset of a parsed JSON document this crate inspects: numbers, arrays, and object keys.
 /// String *values* and booleans are validated and then discarded — [`crate::inspect`] never reads
@@ -278,6 +284,85 @@ impl Parser<'_> {
   }
 }
 
+/// Encode `s` as a JSON string literal, escaping exactly what `serde_json` escapes: the quote, the
+/// backslash, and the C0 control characters — `\b`/`\t`/`\n`/`\f`/`\r` shorthands, lowercase
+/// `\u00xx` for the rest, and nothing else (no `/`, no DEL, no U+2028/U+2029).
+pub(crate) fn string_literal(s: &str) -> String {
+  const HEX: &[u8; 16] = b"0123456789abcdef";
+  let mut out = String::with_capacity(s.len() + 2);
+  out.push('"');
+  for c in s.chars() {
+    match c {
+      '"' => out.push_str("\\\""),
+      '\\' => out.push_str("\\\\"),
+      '\u{8}' => out.push_str("\\b"),
+      '\t' => out.push_str("\\t"),
+      '\n' => out.push_str("\\n"),
+      '\u{c}' => out.push_str("\\f"),
+      '\r' => out.push_str("\\r"),
+      c if (c as u32) < 0x20 => {
+        out.push_str("\\u00");
+        out.push(HEX[(c as usize) >> 4] as char);
+        out.push(HEX[(c as usize) & 0xf] as char);
+      }
+      c => out.push(c),
+    }
+  }
+  out.push('"');
+  out
+}
+
+/// Render an `f64` exactly as `serde_json` (through ryu) does: the shortest round-trip digits, in
+/// decimal notation while the decimal point lands within `(-5, 16]` (integral values get a `.0`
+/// tail), in scientific notation outside that window (`1e-6`, `1.23e+17` — a positive exponent
+/// carries an explicit `+`), and `null` for a non-finite value, which is what serde emits for one.
+/// Rust's own `{}` differs on all three counts (`1` for `1.0`, never scientific), so the digits
+/// are taken from `{:e}` and the notation is reassembled under ryu's rules.
+pub(crate) fn fmt_f64(value: f64) -> String {
+  if !value.is_finite() {
+    return "null".into();
+  }
+  // `{:e}` renders the shortest round-trip digits as `[-]d[.ddd]e<exp>`; take them apart.
+  let sci = format!("{value:e}");
+  let (mantissa, exp) = sci.split_once('e').expect("`{:e}` always contains an exponent");
+  let (sign, mantissa) = match mantissa.strip_prefix('-') {
+    Some(rest) => ("-", rest),
+    None => ("", mantissa),
+  };
+  let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+  let exp: i32 = exp.parse().expect("`{:e}` exponents parse");
+  // The decimal point's position: `value` = `0.<digits>` × 10^`point`.
+  let point = exp + 1;
+  let count = digits.len() as i32;
+  let mut out = String::from(sign);
+  if point >= count && point <= 16 {
+    // An integral value within the window: the digits, padding zeros, and a `.0` tail.
+    out.push_str(&digits);
+    (count..point).for_each(|_| out.push('0'));
+    out.push_str(".0");
+  } else if point > 0 && point <= 16 {
+    out.push_str(&digits[..point as usize]);
+    out.push('.');
+    out.push_str(&digits[point as usize..]);
+  } else if point > -5 && point <= 0 {
+    out.push_str("0.");
+    (point..0).for_each(|_| out.push('0'));
+    out.push_str(&digits);
+  } else {
+    out.push_str(&digits[..1]);
+    if count > 1 {
+      out.push('.');
+      out.push_str(&digits[1..]);
+    }
+    out.push('e');
+    if point > 0 {
+      out.push('+');
+    }
+    out.push_str(&(point - 1).to_string());
+  }
+  out
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -343,5 +428,48 @@ mod tests {
     let nest = |depth: usize| format!("{}0{}", "[".repeat(depth), "]".repeat(depth));
     assert!(parse(&nest(100)).is_some());
     assert_eq!(parse(&nest(200)), None);
+  }
+
+  /// Every expected literal below is `serde_json::to_string`'s actual output for the same input,
+  /// captured verbatim — the writer's whole contract is matching serde byte-for-byte.
+  #[test]
+  fn string_literals_escape_exactly_like_serde() {
+    assert_eq!(string_literal("a\"b\\c/d"), r#""a\"b\\c/d""#, "the slash stays raw");
+    assert_eq!(string_literal("\u{0}\u{1}\u{8}\t\n\u{b}\u{c}\r\u{1f}"), r#""\u0000\u0001\b\t\n\u000b\f\r\u001f""#);
+    assert_eq!(string_literal("\u{7f}\u{2028}\u{2029}"), "\"\u{7f}\u{2028}\u{2029}\"", "only C0 controls are escaped");
+    assert_eq!(string_literal("héllo\u{1f41d}<tag>"), "\"héllo\u{1f41d}<tag>\"");
+  }
+
+  #[test]
+  fn floats_render_exactly_like_serde() {
+    let pinned: &[(f64, &str)] = &[
+      (0.0, "0.0"),
+      (-0.0, "-0.0"),
+      (1.0, "1.0"),
+      (12.5, "12.5"),
+      (0.1, "0.1"),
+      (1234.567, "1234.567"),
+      (123456789.12345679, "123456789.12345679"),
+      (9.109383701528e-31, "9.109383701528e-31"),
+      (0.0001, "0.0001"),
+      (0.00007, "0.00007"),
+      (1e-5, "0.00001"),
+      (1e-6, "1e-6"),
+      (1.5e-7, "1.5e-7"),
+      (1e15, "1000000000000000.0"),
+      (9007199254740992.0, "9007199254740992.0"),
+      (1e16, "1e+16"),
+      (1.23e17, "1.23e+17"),
+      (1e21, "1e+21"),
+      (5e-324, "5e-324"),
+      (f64::MAX, "1.7976931348623157e+308"),
+      (2.2250738585072014e-308, "2.2250738585072014e-308"),
+    ];
+    for (value, expected) in pinned {
+      assert_eq!(&fmt_f64(*value), expected, "for {value:e}");
+    }
+    // serde cannot put a non-finite number in a document; it writes `null`, and so do we.
+    assert_eq!(fmt_f64(f64::NAN), "null");
+    assert_eq!(fmt_f64(f64::INFINITY), "null");
   }
 }

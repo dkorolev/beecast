@@ -12,8 +12,6 @@
 //! through [`emit`], which treats a broken pipe (`beecast schema | head`) as a clean exit
 //! rather than the panic the `print!` macros would raise — so no `libc`, no `unsafe`.
 
-mod page;
-
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -282,7 +280,12 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
   }
 
   let fallback_title = cast_path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or("cast".into());
-  let html = page::build_page(&ndjson, &meta, &fallback_title);
+  // The serde `CastMeta` → plain-strings `PageMeta` boundary: `beecast-page` is zero-dependency
+  // on purpose, so the CLI hands it borrowed strings and floats, never serde types.
+  let chapters: Vec<(f64, &str)> = meta.chapters.iter().map(|c| (c.t, c.title.as_str())).collect();
+  let page_meta =
+    beecast_page::PageMeta { title: meta.title.as_deref(), summary: meta.summary.as_deref(), chapters: &chapters };
+  let html = beecast_page::build_page(&ndjson, &page_meta, &fallback_title);
 
   let to_stdout = args.output.as_deref() == Some(Path::new("-"));
   if to_stdout {

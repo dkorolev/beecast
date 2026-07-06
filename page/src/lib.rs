@@ -9,5 +9,7 @@
 
 mod cast;
 mod json;
+mod page;
 
 pub use cast::{inspect, CastError, CastInfo};
+pub use page::{build_page, PageMeta};

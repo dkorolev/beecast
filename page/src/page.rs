@@ -6,18 +6,31 @@
 //! The page's structure and behavior live in `page.html` (per ENG-PRINCIPLES §4 the glue
 //! is deliberately trivial vanilla JS); this module fills its `@@BEECAST_*@@` tokens.
 
-use beecast_dto::CastMeta;
+use crate::json;
 
 const TEMPLATE: &str = include_str!("page.html");
 const PLAYER_JS: &str = include_str!("vendor/asciinema-player.min.js");
 const PLAYER_CSS: &str = include_str!("vendor/asciinema-player.css");
 
+/// The metadata one page renders: plain strings and floats, never serde types, so a caller does
+/// not inherit any dependencies. Chapters are `(seconds, title)` pairs. Validating the metadata
+/// (ascending timekeys, the first chapter at 0) stays the caller's job — the `beecast` CLI runs
+/// `beecast_dto::CastMeta::validate` and then hands over borrowed strings at this boundary.
+#[derive(Debug, Clone, Default)]
+pub struct PageMeta<'a> {
+  /// Short human title for the recording; `None` falls back to the recording's filename.
+  pub title: Option<&'a str>,
+  /// One- or two-sentence description, rendered under the title; `None` stays hidden.
+  pub summary: Option<&'a str>,
+  /// Chapter markers as `(seconds, title)`, strictly ascending, the first at 0.
+  pub chapters: &'a [(f64, &'a str)],
+}
+
 /// Build the self-contained page. `fallback_title` (the recording's filename) is used
 /// when the metadata has no title.
-pub fn build_page(cast_ndjson: &str, meta: &CastMeta, fallback_title: &str) -> String {
-  let title = meta.title.as_deref().unwrap_or(fallback_title);
-  let summary = meta.summary.as_deref().unwrap_or("");
-  let meta_json = serde_json::to_string(meta).expect("CastMeta serializes: it is plain strings and floats");
+pub fn build_page(cast_ndjson: &str, meta: &PageMeta, fallback_title: &str) -> String {
+  let title = meta.title.unwrap_or(fallback_title);
+  let summary = meta.summary.unwrap_or("");
   render(
     TEMPLATE,
     &[
@@ -27,10 +40,34 @@ pub fn build_page(cast_ndjson: &str, meta: &CastMeta, fallback_title: &str) -> S
       ("@@BEECAST_PLAYER_CSS@@", PLAYER_CSS),
       ("@@BEECAST_PLAYER_JS@@", PLAYER_JS),
       ("@@BEECAST_CAST_JSON@@", &js_string_literal(cast_ndjson)),
-      ("@@BEECAST_META_JSON@@", &script_safe(&meta_json)),
+      ("@@BEECAST_META_JSON@@", &script_safe(&meta_json(meta))),
+      // The version is inherited from the one workspace-wide `[workspace.package]`, so this is
+      // also the `beecast` CLI's version, and the footer names the tool, not this library crate.
       ("@@BEECAST_FOOTER@@", &format!("beecast v{}", env!("CARGO_PKG_VERSION"))),
     ],
   )
+}
+
+/// Serialize the metadata exactly as serde_json serialized the CLI's `CastMeta` before the page
+/// pipeline became this crate: fields in declaration order, absent or empty ones omitted (`{}`
+/// when nothing is set), strings and floats in serde's own renderings (see `json`).
+fn meta_json(meta: &PageMeta) -> String {
+  let mut fields: Vec<String> = Vec::new();
+  if let Some(title) = meta.title {
+    fields.push(format!("\"title\":{}", json::string_literal(title)));
+  }
+  if let Some(summary) = meta.summary {
+    fields.push(format!("\"summary\":{}", json::string_literal(summary)));
+  }
+  if !meta.chapters.is_empty() {
+    let chapters: Vec<String> = meta
+      .chapters
+      .iter()
+      .map(|(t, title)| format!("{{\"t\":{},\"title\":{}}}", json::fmt_f64(*t), json::string_literal(title)))
+      .collect();
+    fields.push(format!("\"chapters\":[{}]", chapters.join(",")));
+  }
+  format!("{{{}}}", fields.join(","))
 }
 
 /// Substitute tokens by scanning the *template only*: substituted values are appended,
@@ -61,11 +98,11 @@ fn esc_html(s: &str) -> String {
 }
 
 /// Encode arbitrary text as a JS string literal that is safe *inside a `<script>` element*:
-/// serde_json escapes quotes, backslashes, and control characters; on top of that every
+/// the JSON encoding escapes quotes, backslashes, and control characters; on top of that every
 /// `<` becomes the JSON unicode escape for U+003C, so no `</script>` (or `<!--`) sequence
 /// from the recording can terminate the script early.
 fn js_string_literal(s: &str) -> String {
-  serde_json::to_string(s).expect("strings always serialize").replace('<', "\\u003c")
+  json::string_literal(s).replace('<', "\\u003c")
 }
 
 /// Make a JSON document safe to embed as a JS object literal inside `<script>`: `<` only
@@ -77,14 +114,9 @@ fn script_safe(json: &str) -> String {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use beecast_dto::{CastMeta, Chapter};
 
-  fn demo_meta() -> CastMeta {
-    CastMeta {
-      title: Some("Demo <run>".into()),
-      summary: Some("A & B.".into()),
-      chapters: vec![Chapter { t: 0.0, title: "Start".into() }, Chapter { t: 12.5, title: "Mid".into() }],
-    }
+  fn demo_meta() -> PageMeta<'static> {
+    PageMeta { title: Some("Demo <run>"), summary: Some("A & B."), chapters: &[(0.0, "Start"), (12.5, "Mid")] }
   }
 
   #[test]
@@ -111,15 +143,16 @@ mod tests {
 
   #[test]
   fn page_without_meta_falls_back_to_the_filename() {
-    let page = build_page("{\"version\":2,\"width\":80,\"height\":24}\n", &CastMeta::default(), "rec.cast");
+    let page = build_page("{\"version\":2,\"width\":80,\"height\":24}\n", &PageMeta::default(), "rec.cast");
     assert!(page.contains("<title>rec.cast</title>"));
     assert!(page.contains("<p id=\"summary\" hidden></p>"), "empty summary stays hidden");
+    assert!(page.contains("const META = {};"), "an empty metadata object, exactly as serde rendered one");
   }
 
   #[test]
   fn hostile_cast_content_cannot_break_out_of_the_script() {
     let cast = "{\"version\":2,\"width\":80,\"height\":24}\n[1.0,\"o\",\"</script><script>alert(1)\"]\n";
-    let page = build_page(cast, &CastMeta::default(), "x.cast");
+    let page = build_page(cast, &PageMeta::default(), "x.cast");
     let payload_zone = &page[page.find("const CAST_DATA").unwrap()..];
     assert!(!payload_zone.contains("</script><script>alert"), "the recording's text is neutralized");
     assert!(payload_zone.contains("\\u003c/script>"), "escaped as \\u003c");
@@ -127,11 +160,7 @@ mod tests {
 
   #[test]
   fn hostile_meta_titles_are_neutralized_too() {
-    let meta = CastMeta {
-      title: Some("<script>x".into()),
-      summary: None,
-      chapters: vec![Chapter { t: 0.0, title: "</script>y".into() }],
-    };
+    let meta = PageMeta { title: Some("<script>x"), summary: None, chapters: &[(0.0, "</script>y")] };
     let page = build_page("{\"version\":2,\"width\":80,\"height\":24}\n", &meta, "x.cast");
     assert!(page.contains("<title>&lt;script&gt;x</title>"));
     assert!(!page.contains("\"title\":\"</script>"), "chapter titles are script-safe in the embedded META");
