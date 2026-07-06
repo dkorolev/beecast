@@ -13,11 +13,11 @@ The workspace publishes three crates to crates.io. A crate cannot be published u
 The version lives once, in the root `[workspace.package] version`, and all three crates inherit it via `version.workspace = true`. Each internal dependency is declared in `[workspace.dependencies]` with **both** a `path` and a `version`:
 
 ```toml
-beecast-dto = { path = "dto", version = "0.1.0" }
-beecast-page = { path = "page", version = "0.1.0" }
+beecast-dto = { path = "dto", version = "0.2.0" }
+beecast-page = { path = "page", version = "0.2.0" }
 ```
 
-Inside the workspace, Cargo resolves them by path. On `cargo publish` it strips the `path` and keeps the `version`, so the published `beecast` depends on `beecast-dto = "0.1.0"` and `beecast-page = "0.1.0"` from crates.io. A path-only dependency cannot be published — the `version` is what makes it publishable.
+Inside the workspace, Cargo resolves them by path. On `cargo publish` it strips the `path` and keeps the `version`, so the published `beecast` depends on `beecast-dto = "0.2.0"` and `beecast-page = "0.2.0"` from crates.io. A path-only dependency cannot be published — the `version` is what makes it publishable.
 
 When bumping the version, change it in exactly three places and keep them equal: `[workspace.package] version` and the `version` in the `beecast-dto` and `beecast-page` entries under `[workspace.dependencies]`.
 

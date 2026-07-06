@@ -234,9 +234,11 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// The page must be byte-identical to what the serde-era renderer produced: these fingerprints
 /// were captured from the CLI at the commit before the page pipeline moved into the
 /// zero-dependency `beecast-page` crate, and they pin the fixture pages whole — template, vendored
-/// player, escaping, float formatting, and the embedded metadata document. When the template, the
-/// player, or the workspace version changes *intentionally*, re-pin using the lengths and
-/// fingerprints this assertion prints.
+/// player, escaping, float formatting, and the embedded metadata document. The only re-pin since
+/// that capture is the 0.1.0 → 0.2.0 bump of the version the footer embeds; the page is otherwise
+/// still the serde-era bytes, and the lengths are unchanged since both versions are five
+/// characters. When the template, the player, or the workspace version changes *intentionally*,
+/// re-pin using the lengths and fingerprints this assertion prints.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -247,7 +249,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (212791, 0xebce355a09c5bdbd, 212581, 0x3f1a4dea3657c8f2), "the generated page's bytes moved");
+  assert_eq!(got, (212791, 0xd646dc7838d9ec84, 212581, 0x74f015c00f2c659b), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
