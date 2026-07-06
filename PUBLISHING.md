@@ -30,7 +30,7 @@ cargo publish -p beecast-dto --dry-run
 cargo publish -p beecast-page --dry-run
 ```
 
-`beecast` depends on both from the registry, so a full dry run (or the real publish) only works **after** they are on crates.io — cargo resolves the version dependencies against the index, not the workspace paths, when preparing the tarball. Before publishing them, verify the CLI's contents (which files ship, tests excluded) with:
+`beecast` depends on both from the registry, so a per-crate dry run (or a per-crate publish) only works **after** they are on crates.io — cargo resolves the version dependencies against the index, not the workspace paths, when preparing the tarball. Packaging the whole workspace at once (`cargo package --workspace`, or a bare `cargo publish`, both cargo ≥ 1.90) has no such ordering constraint: cargo resolves the internal dependencies against the locally built packages. The gate runs `cargo package --workspace` and requires it to be **warning-free** — in particular, the CLI's `include` list ships the test suite and its fixtures, because leaving them out made cargo warn about the auto-discovered test targets. To see exactly which files ship:
 
 ```
 cargo package -p beecast --list

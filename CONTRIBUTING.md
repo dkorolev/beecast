@@ -4,7 +4,7 @@ A Cargo workspace with four parts: the [`beecast-dto`](dto) crate (`dto/` — th
 
 `dto/schema/beecast-meta.schema.json` is *generated* from the Rust types in `dto/src/lib.rs` (the source of truth) — regenerate with `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`; a unit test in `beecast-dto` pins the shipped file byte-for-byte, and a Python test cross-checks the facts `validate_meta` mirrors, so drift dies in the gate.
 
-Two gates, same checks (`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo test --workspace --release`, `python3 -m unittest discover -s seecast/tests`):
+Two gates, same checks (`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo test --workspace --release`, `python3 -m unittest discover -s seecast/tests`, and a **warning-free** `cargo package --workspace` — packaging is the dry run of publishing, and a warning there means the published crates would silently differ from the repo's intent):
 
 1. **Pre-push** — enable once per clone: `git config core.hooksPath .githooks`. Committing locally stays free and fast; the gate runs when code leaves the machine.
 2. **CI** — `.github/workflows/ci.yml`, required before merge.

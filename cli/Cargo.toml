@@ -14,8 +14,9 @@ keywords = ["asciinema", "terminal", "cast", "player", "html"]
 categories = ["command-line-utilities"]
 # The published crate is the CLI: its sources, its README, and the MIT license text as /LICENSE
 # (the vendored player and its Apache-2.0 text ship inside `beecast-page`).
-# The test suite and fixtures stay repo-only.
-include = ["/src/", "/README.md", "/LICENSE"]
+# The test suite and its fixtures ship too — leaving them out made cargo warn at packaging time
+# about the auto-discovered test targets, and the gate requires packaging to be warning-free.
+include = ["/src/", "/tests/", "/README.md", "/LICENSE"]
 
 [[bin]]
 name = "beecast"

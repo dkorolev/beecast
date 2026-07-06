@@ -8,3 +8,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo test --workspace --release
 python3 -m unittest discover -s seecast/tests
+# Packaging (the dry run of publishing) must be warning-free: a warning here means the
+# published crates would silently differ from the repo's intent.
+pkg_out="$(cargo package --workspace --allow-dirty 2>&1)" || { printf '%s\n' "$pkg_out"; exit 1; }
+case "$pkg_out" in
+  *warning:*) printf '%s\n' "$pkg_out"; echo "cargo package must be warning-free"; exit 1;;
+esac
