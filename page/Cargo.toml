@@ -1,0 +1,20 @@
+[package]
+name = "beecast-page"
+description = "The BeeCast page pipeline as a library — turn an asciinema .cast recording plus plain-strings metadata into a single self-contained offline .html player page. Zero dependencies."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+# BeeCast's own code is MIT, while the vendored and inlined asciinema-player is Apache-2.0.
+# The crate ships both, and every generated page embeds both, so the SPDX expression names both.
+license = "MIT AND Apache-2.0"
+keywords = ["asciinema", "terminal", "cast", "player", "html"]
+categories = ["visualization", "web-programming"]
+# The published crate is the pipeline: its sources (with the vendored player and page template), its README, and both
+# license texts. MIT ships as /LICENSE and the vendored player's Apache-2.0 under /src/vendor/, matching the SPDX expression.
+include = ["/src/", "/README.md", "/LICENSE"]
+
+# No dependencies — deliberately. Consumers with tiny dependency trees (`scsh` hand-rolls its JSON on purpose) embed
+# this crate without pulling serde or anyhow; the pipeline's few JSON needs are met by the std-only `json` module.
+[dependencies]

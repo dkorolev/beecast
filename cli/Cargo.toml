@@ -20,11 +20,11 @@ include = ["/src/", "/README.md", "/LICENSE"]
 name = "beecast"
 path = "src/main.rs"
 
-# The metadata types come from the versioned `beecast-dto` crate; the CLI adds rendering and I/O.
-# `serde_json` builds the machine-mode output documents, `anyhow` carries error context (§5),
-# and `thiserror` types the cast-inspection errors the CLI branches on.
+# The metadata types come from the versioned `beecast-dto` crate and cast inspection from the
+# zero-dependency `beecast-page` crate; the CLI adds rendering and I/O.
+# `serde_json` builds the machine-mode output documents, and `anyhow` carries error context (§5).
 [dependencies]
 beecast-dto.workspace = true
+beecast-page.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
-thiserror.workspace = true

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["dto", "cli"]
+members = ["dto", "page", "cli"]
 
 # One source of truth for the shared package metadata, and for the version every crate inherits (§7).
 [workspace.package]
@@ -10,9 +10,9 @@ authors = ['Dmitry "Dima" Korolev <dmitry.korolev@gmail.com>']
 license = "MIT"
 repository = "https://github.com/dkorolev/beecast"
 
-# Shared dependencies, including the internal DTO crate.
-# The internal dep carries both a `path` (used inside the workspace) and a `version` (used once published).
-# `cargo publish` strips the path, so the published `beecast` depends on `beecast-dto` from the registry.
+# Shared dependencies, including the internal crates.
+# Each internal dep carries both a `path` (used inside the workspace) and a `version` (used once published).
+# `cargo publish` strips the paths, so the published `beecast` depends on both from the registry.
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -20,3 +20,4 @@ thiserror = "2"
 schemars = "1"
 anyhow = "1"
 beecast-dto = { path = "dto", version = "0.1.0" }
+beecast-page = { path = "page", version = "0.1.0" }

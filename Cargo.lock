@@ -14,8 +14,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beecast-dto",
+ "beecast-page",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -27,6 +27,10 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "beecast-page"
+version = "0.1.0"
 
 [[package]]
 name = "dyn-clone"

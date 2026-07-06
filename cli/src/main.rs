@@ -12,7 +12,6 @@
 //! through [`emit`], which treats a broken pipe (`beecast schema | head`) as a clean exit
 //! rather than the panic the `print!` macros would raise — so no `libc`, no `unsafe`.
 
-mod cast;
 mod page;
 
 use std::io::{IsTerminal, Write};
@@ -259,7 +258,7 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
   let ndjson =
     std::fs::read_to_string(cast_path).with_context(|| format!("cannot read recording `{}`", cast_path.display()))?;
   let info =
-    cast::inspect(&ndjson).with_context(|| format!("`{}` is not a playable recording", cast_path.display()))?;
+    beecast_page::inspect(&ndjson).with_context(|| format!("`{}` is not a playable recording", cast_path.display()))?;
 
   let (meta, meta_source) = load_meta(&args)?;
   // The sidecar-discovery narration is a diagnostic: stderr for a human, a field in the
