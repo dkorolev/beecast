@@ -8,12 +8,13 @@ Also designed to be self-contained, so that when the file is saved, it's a singl
 
 ## What's in this repo
 
-A Cargo workspace of two published crates, plus a companion annotator:
+A Cargo workspace of three published crates, plus a companion annotator:
 
 | Directory | Crate / tool | What it is |
 | --- | --- | --- |
 | [`dto/`](dto) | `beecast-dto` (crates.io) | The cast-metadata DTO — the `{ title, summary, chapters }` sidecar types, their validator, and the JSON Schema generated from them. The source of truth for the metadata shape. |
-| [`cli/`](cli) | `beecast` (crates.io) | The CLI that renders a `.cast` (plus optional sidecar) into one self-contained `.html`. Depends on `beecast-dto`. |
+| [`page/`](page) | `beecast-page` (crates.io) | The page pipeline as a **zero-dependency** library — cast inspection plus the renderer that turns cast text and plain-strings metadata into the self-contained `.html`. Ships the vendored player. |
+| [`cli/`](cli) | `beecast` (crates.io) | The CLI that renders a `.cast` (plus optional sidecar) into one self-contained `.html`. Depends on `beecast-dto` and `beecast-page`. |
 | [`seecast/`](seecast) | `seecast` (repo tool) | The AI annotator (single-file, stdlib-only Python) that writes a sidecar from a recording, via `cursor-agent`. |
 
 The metadata schema is the shared contract: `beecast-dto` defines it in Rust, `beecast` renders files in its shape, and `seecast` generates them. One schema, one source of truth.
@@ -33,8 +34,8 @@ Full CLI docs are in [`cli/README.md`](cli/README.md); the metadata shape in [`d
 cargo test --workspace && cargo test --workspace --release
 ```
 
-The crates publish to crates.io in dependency order — `beecast-dto` first, then `beecast` — as documented in [`PUBLISHING.md`](PUBLISHING.md). Contribution and gate details are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The crates publish to crates.io in dependency order — `beecast-dto` and `beecast-page` first (they are independent of each other), then `beecast` — as documented in [`PUBLISHING.md`](PUBLISHING.md). Contribution and gate details are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-BeeCast's own code is MIT (see [`LICENSE`](LICENSE)). The `beecast` CLI vendors the asciinema-player (Apache-2.0, redistributed unmodified), so that crate's SPDX license is `MIT AND Apache-2.0`; details in [`cli/src/vendor/README.md`](cli/src/vendor/README.md).
+BeeCast's own code is MIT (see [`LICENSE`](LICENSE)). The `beecast-page` crate vendors the asciinema-player (Apache-2.0, redistributed unmodified), and every `beecast` binary and generated page embeds it, so both crates' SPDX license is `MIT AND Apache-2.0`; details in [`page/src/vendor/README.md`](page/src/vendor/README.md).

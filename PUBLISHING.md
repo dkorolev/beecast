@@ -1,39 +1,42 @@
 # Publishing
 
-The workspace publishes two crates to crates.io. A crate cannot be published until every crate it depends on already exists on the registry at the version it asks for, so **order matters**.
+The workspace publishes three crates to crates.io. A crate cannot be published until every crate it depends on already exists on the registry at the version it asks for, so **order matters**.
 
 ## Order
 
 1. `cargo publish -p beecast-dto` — the cast-metadata DTO, no internal dependencies.
-2. `cargo publish -p beecast` — the CLI, which depends on `beecast-dto` and pulls it from the registry.
+2. `cargo publish -p beecast-page` — the page pipeline, no dependencies at all; independent of `beecast-dto`, so these first two can go in either order.
+3. `cargo publish -p beecast` — the CLI, which depends on both and pulls them from the registry.
 
 ## One version, one place
 
-The version lives once, in the root `[workspace.package] version`, and both crates inherit it via `version.workspace = true`. The internal dependency is declared in `[workspace.dependencies]` with **both** a `path` and a `version`:
+The version lives once, in the root `[workspace.package] version`, and all three crates inherit it via `version.workspace = true`. Each internal dependency is declared in `[workspace.dependencies]` with **both** a `path` and a `version`:
 
 ```toml
 beecast-dto = { path = "dto", version = "0.1.0" }
+beecast-page = { path = "page", version = "0.1.0" }
 ```
 
-Inside the workspace, Cargo resolves `beecast-dto` by path. On `cargo publish` it strips the `path` and keeps the `version`, so the published `beecast` depends on `beecast-dto = "0.1.0"` from crates.io. A path-only dependency cannot be published — the `version` is what makes it publishable.
+Inside the workspace, Cargo resolves them by path. On `cargo publish` it strips the `path` and keeps the `version`, so the published `beecast` depends on `beecast-dto = "0.1.0"` and `beecast-page = "0.1.0"` from crates.io. A path-only dependency cannot be published — the `version` is what makes it publishable.
 
-When bumping the version, change it in exactly two places and keep them equal: `[workspace.package] version` and the `version` in the `beecast-dto` entry under `[workspace.dependencies]`.
+When bumping the version, change it in exactly three places and keep them equal: `[workspace.package] version` and the `version` in the `beecast-dto` and `beecast-page` entries under `[workspace.dependencies]`.
 
 ## Dry run before publishing
 
-`beecast-dto` has no internal dependencies, so it verifies fully offline:
+`beecast-dto` and `beecast-page` have no internal dependencies, so they verify fully offline:
 
 ```
 cargo publish -p beecast-dto --dry-run
+cargo publish -p beecast-page --dry-run
 ```
 
-`beecast` depends on `beecast-dto` from the registry, so a full dry run (or the real publish) only works **after** `beecast-dto` is on crates.io — cargo resolves the version dependency against the index, not the workspace path, when preparing the tarball. Before publishing `beecast-dto`, verify the CLI's contents (which files ship, tests excluded) with:
+`beecast` depends on both from the registry, so a full dry run (or the real publish) only works **after** they are on crates.io — cargo resolves the version dependencies against the index, not the workspace paths, when preparing the tarball. Before publishing them, verify the CLI's contents (which files ship, tests excluded) with:
 
 ```
 cargo package -p beecast --list
 ```
 
-Then the real sequence is: publish `beecast-dto`, wait for it to appear on the index, then `cargo publish -p beecast --dry-run` and `cargo publish -p beecast`.
+Then the real sequence is: publish `beecast-dto` and `beecast-page`, wait for them to appear on the index, then `cargo publish -p beecast --dry-run` and `cargo publish -p beecast`.
 
 ## Versioning discipline (§7)
 
