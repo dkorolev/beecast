@@ -226,6 +226,30 @@ fn global_json_and_color_flags_are_accepted_anywhere() {
   assert!(e["Error"]["message"].as_str().unwrap().contains("supported: auto, never, no"));
 }
 
+/// FNV-1a 64: a tiny, dependency-free fingerprint for pinning the generated page's exact bytes.
+fn fnv1a(bytes: &[u8]) -> u64 {
+  bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
+}
+
+/// The page must be byte-identical to what the serde-era renderer produced: these fingerprints
+/// were captured from the CLI at the commit before the page pipeline moved into the
+/// zero-dependency `beecast-page` crate, and they pin the fixture pages whole — template, vendored
+/// player, escaping, float formatting, and the embedded metadata document. When the template, the
+/// player, or the workspace version changes *intentionally*, re-pin using the lengths and
+/// fingerprints this assertion prints.
+#[test]
+fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
+  let dir = tempdir("pin");
+  std::fs::copy(fixture("sample.cast"), dir.join("sample.cast")).unwrap();
+  std::fs::copy(fixture("sample.meta.json"), dir.join("sample.meta.json")).unwrap();
+  let with_meta = beecast(&["build", "sample.cast", "-o", "-"], &dir).stdout;
+  // The same recording under another name and without the sidecar: the fallback-title path.
+  std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
+  let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
+  let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
+  assert_eq!(got, (212791, 0xebce355a09c5bdbd, 212581, 0x3f1a4dea3657c8f2), "the generated page's bytes moved");
+}
+
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
 /// shipped in the `beecast-dto` crate, which a unit test there pins to the generated document.
 #[test]
