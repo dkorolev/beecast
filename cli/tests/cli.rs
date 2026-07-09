@@ -233,12 +233,14 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 
 /// The page must be byte-identical to what the serde-era renderer produced: these fingerprints
 /// were captured from the CLI at the commit before the page pipeline moved into the
-/// zero-dependency `beecast-page` crate, and they pin the fixture pages whole — template, vendored
-/// player, escaping, float formatting, and the embedded metadata document. Re-pins since that
+/// zero-dependency `beecast-page` crate, and they pin the fixture pages whole — template, player,
+/// escaping, float formatting, and the embedded metadata document. Re-pins since that
 /// capture: the 0.1.0 → 0.2.0 version bump of the footer, then 0.2.1 together with the favicon
-/// swap (the bee emoji became scsh's prompt chevron on a dark tile, recolored red). When the
-/// template, the player, or the workspace version changes *intentionally*, re-pin using the
-/// lengths and fingerprints this assertion prints.
+/// swap (the bee emoji became scsh's prompt chevron on a dark tile, recolored red), then the
+/// vendored asciinema-player gave way to the first-party clean-room `scsh-cast-player` (the page
+/// shrank ~168KB and now carries a single MIT license). When the template, the player, or the
+/// workspace version changes *intentionally*, re-pin using the lengths and fingerprints this
+/// assertion prints.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -249,7 +251,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (212845, 0x523b9bf19e6cb0d8, 212635, 0x6e6b339a6d8572dd), "the generated page's bytes moved");
+  assert_eq!(got, (44885, 0x661046d88c3e0369, 44675, 0xa3709215baf35278), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

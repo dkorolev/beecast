@@ -6,14 +6,12 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 readme = "README.md"
-# BeeCast's own code is MIT, while the vendored asciinema-player (Apache-2.0) now ships in the
-# `beecast-page` dependency — yet every `beecast` binary and every generated page still embeds it,
-# so this crate's SPDX expression keeps naming both.
-license = "MIT AND Apache-2.0"
+# All first-party code: `beecast-page` now embeds the clean-room scsh-cast-player, so one
+# license covers the binary and every generated page.
+license.workspace = true
 keywords = ["asciinema", "terminal", "cast", "player", "html"]
 categories = ["command-line-utilities"]
-# The published crate is the CLI: its sources, its README, and the MIT license text as /LICENSE
-# (the vendored player and its Apache-2.0 text ship inside `beecast-page`).
+# The published crate is the CLI: its sources, its README, and the MIT license text as /LICENSE.
 # The test suite and its fixtures ship too — leaving them out made cargo warn at packaging time
 # about the auto-discovered test targets, and the gate requires packaging to be warning-free.
 include = ["/src/", "/tests/", "/README.md", "/LICENSE"]

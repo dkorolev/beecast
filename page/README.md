@@ -23,4 +23,4 @@ Validating the metadata (strictly ascending chapters, the first at `t = 0`) stay
 
 ## License
 
-BeeCast's own code is MIT (text in [`LICENSE`](LICENSE), shipped with the crate). The vendored, inlined asciinema-player is Apache-2.0 (© the asciinema-player authors) — its full text ships as [`src/vendor/LICENSE-APACHE-2.0`](src/vendor/LICENSE-APACHE-2.0), and it is redistributed unmodified. This crate's SPDX license is therefore `MIT AND Apache-2.0`; see [`src/vendor/README.md`](src/vendor/README.md).
+BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room `scsh-cast-player` (see [`src/player/README.md`](src/player/README.md)), so no third-party code or license ships in the crate or in any generated page.

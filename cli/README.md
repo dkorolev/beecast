@@ -9,7 +9,7 @@ open demo.html                     # play it — fully offline
 
 ## What the page gives you
 
-- **Playback** of asciicast v1, v2, and v3 recordings, via a vendored, inlined [asciinema-player](https://github.com/asciinema/asciinema-player) (Apache-2.0).
+- **Playback** of asciicast v1, v2, and v3 recordings, via BeeCast's own inlined clean-room `scsh-cast-player` (MIT, like everything else here).
 - **Title and summary** — rendered from the optional metadata sidecar (see below).
 - **Chapter navigation** — one button per chapter, plus markers on the player timeline.
 - **Speed up / slow down** — 0.5× · 1× · 1.5× · 2× · 3×, switchable mid-playback.
@@ -77,4 +77,4 @@ cargo install --path cli                                   # from a checkout (wo
 
 ## License
 
-BeeCast's own code is MIT (text in [`LICENSE`](LICENSE), shipped with the crate). The vendored, inlined asciinema-player is Apache-2.0 (© the asciinema-player authors), redistributed unmodified in the [`beecast-page`](../page) crate — and every `beecast` binary and generated page embeds it, so this crate's SPDX license stays `MIT AND Apache-2.0`; see [`../page/src/vendor/README.md`](../page/src/vendor/README.md).
+BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room `scsh-cast-player` from the [`beecast-page`](../page) crate (see [`../page/src/player/README.md`](../page/src/player/README.md)), so no third-party code or license ships in the binary or in any generated page.

@@ -41,7 +41,7 @@ header h1 { margin: 0; font-size: 18px; }
 #chapters button .t { color: #7ab4ff; margin-right: 5px; font-variant-numeric: tabular-nums; }
 /* Fill the viewport below the header/controls so fit:'both' fits vertically too. */
 #player-wrap { flex: 1; padding: 0 16px 10px; min-height: 300px; }
-#player, .ap-player { width: 100%; height: 100%; max-width: 100%; }
+#player, .scsh-player { width: 100%; height: 100%; max-width: 100%; }
 footer { padding: 0 16px 12px; font-size: 12px; color: #6c7080; }
 </style>
 </head>
@@ -100,30 +100,22 @@ const META = @@BEECAST_META_JSON@@;
 
   let player = null;
   let speed = 1;
-  let wasPlaying = false;
 
-  // The player has no runtime set-speed API, so speed changes (and reloads) recreate it
-  // in place, parked or playing at the same moment.
+  // Speed changes (and reloads) recreate the player in place, parked or playing at the
+  // same moment; a deep-linked start parks on that frame (the player renders it eagerly).
   function create(startAt, autoPlay) {
     if (player) { try { player.dispose(); } catch (e) {} player = null; }
-    const opts = { fit: 'both', preload: true, markers: MARKERS, speed: speed, idleTimeLimit: 2 };
-    if (startAt != null && startAt > 0) {
-      opts.startAt = startAt;
-      opts.poster = 'npt:' + startAt; // park on the linked frame, visible before play
-    }
+    const opts = { fit: 'both', markers: MARKERS, speed: speed, idleTimeLimit: 2 };
+    if (startAt != null && startAt > 0) opts.startAt = startAt;
     if (autoPlay) opts.autoPlay = true;
-    player = AsciinemaPlayer.create({ data: CAST_DATA }, $('player'), opts);
-    player.addEventListener('play', () => { wasPlaying = true; });
-    player.addEventListener('playing', () => { wasPlaying = true; });
-    player.addEventListener('pause', () => { wasPlaying = false; });
-    player.addEventListener('ended', () => { wasPlaying = false; });
+    player = ScshCastPlayer.create({ data: CAST_DATA }, $('player'), opts);
   }
 
   document.querySelectorAll('[data-speed]').forEach((b) => {
     b.addEventListener('click', () => {
       speed = Number(b.dataset.speed);
       document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('active', x === b));
-      const resume = wasPlaying;
+      const resume = !!(player && player.playing);
       Promise.resolve(player ? player.getCurrentTime() : 0).then((t) => create(t, resume));
     });
   });

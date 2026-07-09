@@ -38,4 +38,4 @@ The crates publish to crates.io in dependency order — `beecast-dto` and `beeca
 
 ## License
 
-BeeCast's own code is MIT (see [`LICENSE`](LICENSE)). The `beecast-page` crate vendors the asciinema-player (Apache-2.0, redistributed unmodified), and every `beecast` binary and generated page embeds it, so both crates' SPDX license is `MIT AND Apache-2.0`; details in [`page/src/vendor/README.md`](page/src/vendor/README.md).
+BeeCast is MIT (see [`LICENSE`](LICENSE)) — all of it. The pages embed BeeCast's own clean-room `scsh-cast-player` (written from scratch against the asciicast format and ECMA-48/xterm documentation; see [`page/src/player/README.md`](page/src/player/README.md)), so no third-party code — and no second license — ships in the crates, the binary, or any generated page.

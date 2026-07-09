@@ -1,5 +1,5 @@
 //! `beecast-page` — the BeeCast page pipeline as a library: turn asciinema `.cast` text plus
-//! plain-strings metadata into one fully self-contained `.html` player page, with the vendored
+//! plain-strings metadata into one fully self-contained `.html` player page, with the first-party
 //! player, styles, recording, and metadata all inlined so a saved copy works fully offline.
 //!
 //! Deliberately **zero-dependency**: consumers with tiny dependency trees (`scsh` hand-rolls its

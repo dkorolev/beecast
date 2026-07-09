@@ -9,8 +9,10 @@
 use crate::json;
 
 const TEMPLATE: &str = include_str!("page.html");
-const PLAYER_JS: &str = include_str!("vendor/asciinema-player.min.js");
-const PLAYER_CSS: &str = include_str!("vendor/asciinema-player.css");
+// The first-party scsh-cast-player (see `player/README.md` — clean-room, MIT like the
+// rest of BeeCast): the DOM-free VT core and the DOM half, concatenated into one bundle.
+const PLAYER_JS: &str = concat!(include_str!("player/vt.js"), "\n", include_str!("player/player.js"));
+const PLAYER_CSS: &str = include_str!("player/player.css");
 
 /// The metadata one page renders: plain strings and floats, never serde types, so a caller does
 /// not inherit any dependencies. Chapters are `(seconds, title)` pairs. Validating the metadata
@@ -179,15 +181,15 @@ mod tests {
     assert!(!page.contains("@@BEECAST_"), "all template tokens substituted");
   }
 
-  /// The self-containment claim also depends on the vendored bundle itself: it must not
-  /// reference its optional worker sidecar, must not contain a literal `</script`, and
-  /// its CSS must not pull fonts or images. Asserted here so a future re-vendoring that
-  /// breaks any of it fails loudly.
+  /// The self-containment claim also depends on the player bundle itself: it must not
+  /// contain a literal `</script`, must not reference workers, and its CSS must not pull
+  /// fonts or images. Asserted here so a future player change that breaks any of it fails
+  /// loudly.
   #[test]
-  fn vendored_bundle_is_inline_safe() {
+  fn player_bundle_is_inline_safe() {
     assert!(!PLAYER_JS.contains("</script"), "bundle would terminate the inline <script>");
     assert!(!PLAYER_JS.contains("<!--"), "bundle would enter the script double-escaped state");
-    assert!(!PLAYER_JS.to_lowercase().contains("worker"), "bundle must not load the worker sidecar");
+    assert!(!PLAYER_JS.to_lowercase().contains("worker"), "bundle must not load a worker sidecar");
     assert!(!PLAYER_CSS.contains("url("), "player CSS must not fetch fonts/images");
   }
 }
