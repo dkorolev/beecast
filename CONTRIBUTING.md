@@ -11,7 +11,7 @@ Two gates, same checks (`cargo fmt --check`, `cargo clippy --workspace --all-tar
 
 History is linear (rebase, no merge commits). Commit messages are short, complete sentences: capital first letter, trailing period, `backticks` for identifiers. No `Co-Authored-By` trailers.
 
-When updating the first-party player under `page/src/player/` (its canonical copy lives in scsh — keep the two in sync), the `player_bundle_is_inline_safe` test guards the properties the self-contained page depends on, and the byte fingerprints in `cli/tests/cli.rs` need re-pinning (the failing assertion prints the new values).
+When updating the first-party player under `page/src/player/` (its canonical copy lives in scsh — keep the two in sync), the `player_bundle_is_inline_safe_and_first_party` test guards the properties the self-contained page depends on, and the byte fingerprints in `cli/tests/cli.rs` need re-pinning (the failing assertion prints the new values).
 
 The annotator lives in `.skills/seecast/scripts/seecast.py` — inside the skill directory so `scsh installskills` carries it whole into consumer repos; `seecast/seecast` is a symlink to it. Keep it single-file and stdlib-only.
 
