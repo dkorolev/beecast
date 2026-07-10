@@ -12,6 +12,7 @@
   --beecast-color-accent: #6a9ded;
   --beecast-color-focus: rgba(88, 166, 255, 0.5);
   --beecast-color-marker: #d5b45e;
+  --beecast-color-live: #78bd65;
   --beecast-color-error: #e05f65;
   --beecast-control-height: 44px;
   --beecast-radius: 4px;
@@ -43,6 +44,7 @@
   --beecast-color-accent: #3b6fd4;
   --beecast-color-focus: rgba(59, 111, 212, 0.45);
   --beecast-color-marker: #b8860b;
+  --beecast-color-live: #3d8b40;
   --sp-bg: #f4f5f7;
   --sp-fg: #1c1f24;
 }
@@ -56,6 +58,7 @@
     --beecast-color-accent: #3b6fd4;
     --beecast-color-focus: rgba(59, 111, 212, 0.45);
     --beecast-color-marker: #b8860b;
+    --beecast-color-live: #3d8b40;
     --sp-bg: #f4f5f7;
     --sp-fg: #1c1f24;
   }
@@ -283,6 +286,9 @@
   background: var(--beecast-color-accent);
   pointer-events: none;
 }
+/* Declared-live (setLive): the bar reads "now" — pinned full-width, live green — not a
+   position that jitters as the growing recording keeps re-proportioning it. */
+.beecast-player.sp-islive .sp-fill { width: 100% !important; background: var(--beecast-color-live); }
 .sp-markers { position: absolute; inset: 0; pointer-events: none; }
 .sp-marker {
   position: absolute; top: -2px; bottom: -2px; width: 2px;

@@ -239,6 +239,14 @@ are free; partial trailing lines buffer until complete. A playhead at the live e
 pinned (`tail -f` policy); a viewer who seeked back is never yanked forward. v1 `append`
 is a no-op.
 
+**Declared-live mode.** `player.setLive(true)` (also on the controller) is for the
+embedder that KNOWS the recording is still being produced: the playhead parks at the
+growing edge — every append renders immediately, pinned unconditionally — and the seek
+bar renders full-width in the live color (`--beecast-color-live`), reading as "now"
+rather than a position that jitters as the duration grows. Any explicit rewind — a seek
+before the edge, or `play()` (which would replay from the top) — drops live mode with a
+`livechange` event (`beecast-livechange` on the element); `getState().live` reports it.
+
 The core half is exposed on `BeeCastVT` for embedders that need it without a mounted player.
 
 ## Terminal emulation scope

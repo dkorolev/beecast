@@ -277,6 +277,32 @@ assert.ok(ctrl.getState().atLiveEdge);
 ctrl.append('[0.5,"o","more"]\n');
 assert.strictEqual(ctrl.getState().duration, 2.5);
 
+// Declared-live mode: parked mid-recording, setLive pins the playhead to the edge; an
+// append keeps it pinned (unconditionally — no positional check); a rewinding seek or
+// play() drops live; a seek TO the edge keeps it.
+ctrl.seek(1);
+ctrl.setLive(true);
+let live = ctrl.getState();
+assert.strictEqual(live.live, true);
+assert.ok(live.atLiveEdge, 'setLive parks at the edge');
+assert.ok(Math.abs(live.currentTime - live.duration) < 1e-9);
+ctrl.append('[0.5,"o","live"]\n');
+live = ctrl.getState();
+assert.strictEqual(live.live, true);
+assert.ok(Math.abs(live.currentTime - live.duration) < 1e-9, 'append keeps the pin');
+ctrl.seek(live.duration); // to the edge: still live
+assert.strictEqual(ctrl.getState().live, true);
+const liveEvents = [];
+const unsubLive = ctrl.subscribe((st, meta) => { liveEvents.push(meta.type); });
+ctrl.seek(0.5); // a rewind: live drops, with a livechange event
+assert.strictEqual(ctrl.getState().live, false);
+assert.ok(liveEvents.includes('livechange'));
+unsubLive();
+ctrl.setLive(true);
+ctrl.play(); // play from the parked edge is a rewind: live drops
+assert.strictEqual(ctrl.getState().live, false);
+ctrl.pause();
+
 // getState is a snapshot (mutating returned markers does not corrupt internal list)
 const s1 = ctrl.getState();
 s1.markers.push({ id: 'x', time: 99, type: 'chapter', label: 'x' });

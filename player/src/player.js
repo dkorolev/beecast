@@ -203,6 +203,8 @@ Player.prototype.onState = function (state, meta) {
   this.renderBar(state);
   this.syncOverlay(state);
   this.syncChaptersUi(state);
+  // Declared-live: the bar pins full-width in the live color (see .sp-islive in the CSS).
+  if (this.root) this.root.classList.toggle('sp-islive', !!state.live);
   if (meta.resized) this.layout();
   if (type === 'ready' || type === 'durationchange' || type === 'markerchange') {
     this.layoutMarkers(state);
@@ -234,6 +236,9 @@ Player.prototype.onState = function (state, meta) {
   if (type === 'durationchange') {
     dispatchBee(el, 'beecast-durationchange', { duration: state.duration });
   }
+  if (type === 'livechange') {
+    dispatchBee(el, 'beecast-livechange', { live: !!state.live, origin: meta.origin });
+  }
   if (this._lastAtEdge != null && this._lastAtEdge !== state.atLiveEdge) {
     dispatchBee(el, 'beecast-liveedgechange', { atLiveEdge: state.atLiveEdge });
   }
@@ -250,6 +255,7 @@ function publicState(state) {
     duration: state.duration,
     speed: state.speed,
     atLiveEdge: state.atLiveEdge,
+    live: state.live,
     canAppend: state.canAppend,
     markers: state.markers,
     dimensions: state.dimensions,
@@ -658,6 +664,7 @@ Player.prototype.setSpeed = function (v, origin) { this.controller.setSpeed(v, o
 Player.prototype.getCurrentTime = function () { return this.controller.getCurrentTime(); };
 Player.prototype.getState = function () { return this.controller.getState(); };
 Player.prototype.append = function (text) { this.controller.append(text); };
+Player.prototype.setLive = function (on, origin) { this.controller.setLive(on, origin || 'api'); };
 Player.prototype.subscribe = function (fn) { return this.controller.subscribe(fn); };
 
 Player.prototype.dispose = function () {
