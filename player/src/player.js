@@ -267,6 +267,10 @@ Player.prototype.layout = function () {
   }
   this.screenEl.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
   box.style.height = naturalH * scale + 'px';
+  // Center the (possibly scaled) terminal in the pane; the layout box keeps its unscaled
+  // width, so flex centering would be off — compute the margin from the DISPLAY width.
+  const displayW = naturalW * scale;
+  this.screenEl.style.marginLeft = availW > displayW ? (availW - displayW) / 2 + 'px' : '';
 };
 
 Player.prototype.tick = function (nowMs) {

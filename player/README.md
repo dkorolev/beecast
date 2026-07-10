@@ -58,6 +58,11 @@ player.dispose();
 markers, and `?t=` deep links all use the recording's own clock, so chapter sidecars and
 share-links stay aligned no matter the compression.
 
+**Layout.** With `fit` set, the fixed-metric terminal scales *down* (never up) to the
+containing box's width — and, for `fit: 'both'`, also to the mount's height when the
+embedding page gives it one. Whenever the terminal (scaled or not) ends up narrower than
+its pane, it is centered horizontally in it.
+
 Keyboard, when the player has focus: **space** play/pause · **←/→** seek ±5s ·
 **< / >** speed down/up · **[ / ]** previous/next marker.
 
