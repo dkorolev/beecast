@@ -1,45 +1,96 @@
-# Publishing
+# Publishing to crates.io
 
-The workspace publishes four crates to crates.io. A crate cannot be published until every crate it depends on already exists on the registry at the version it asks for, so **order matters**.
+BeeCast is a four-crate workspace, and the crates depend on each other, so they must be published **in dependency order** and their versions kept in lockstep. This page is the maintainer playbook.
 
-## Order
+## Quick reference
 
-1. `cargo publish -p beecast-dto` — the cast-metadata DTO, no internal dependencies.
-2. `cargo publish -p beecast-player` — the player, no dependencies at all; independent of `beecast-dto`, so these first two can go in either order.
-3. `cargo publish -p beecast-page` — the page pipeline, which depends on `beecast-player`.
-4. `cargo publish -p beecast` — the CLI, which depends on `beecast-dto` and `beecast-page` and pulls everything from the registry.
+Publish the four crates **in this order** (each must be on crates.io before anything that depends on it can build):
 
-## One version, one place
-
-The version lives once, in the root `[workspace.package] version`, and all three crates inherit it via `version.workspace = true`. Each internal dependency is declared in `[workspace.dependencies]` with **both** a `path` and a `version`:
-
-```toml
-beecast-dto = { path = "dto", version = "0.3.1" }
-beecast-player = { path = "player", version = "0.3.1" }
-beecast-page = { path = "page", version = "0.3.1" }
+```console
+$ cargo publish -p beecast-dto      # 1. the metadata DTO — no internal deps    ┐ these two are independent
+$ cargo publish -p beecast-player   # 2. the player — no deps at all            ┘ of each other: either order
+$ cargo publish -p beecast-page     # 3. depends on beecast-player
+$ cargo publish -p beecast          # 4. depends on beecast-dto and beecast-page
 ```
 
-Inside the workspace, Cargo resolves them by path. On `cargo publish` it strips the `path` and keeps the `version`, so the published `beecast` depends on `beecast-dto = "0.3.1"` and `beecast-page = "0.3.1"` from crates.io, and the published `beecast-page` on `beecast-player = "0.3.1"`. A path-only dependency cannot be published — the `version` is what makes it publishable.
+The order is mandatory, not a convention: `cargo publish` verifies each crate by building it against the **registry**, so `beecast-page` only succeeds once `beecast-player` has landed, and `beecast` once `beecast-dto` and `beecast-page` have. The step-by-step release checklist is [further down](#releasing-step-by-step).
 
-When bumping the version, change it in exactly four places and keep them equal: `[workspace.package] version` and the `version` in the `beecast-dto`, `beecast-player`, and `beecast-page` entries under `[workspace.dependencies]`.
-
-## Dry run before publishing
-
-`beecast-dto` and `beecast-player` have no internal dependencies, so they verify fully offline:
+## The dependency graph
 
 ```
-cargo publish -p beecast-dto --dry-run
-cargo publish -p beecast-player --dry-run
+beecast-dto    (dto/)    — the metadata DTO, no internal deps
+beecast-player (player/) — the player, no deps at all
+      ▲
+      └── beecast-page (page/)  depends on beecast-player
+                ▲
+   ┌────────────┘
+beecast (cli/)  depends on beecast-dto and beecast-page
 ```
 
-`beecast-page` and `beecast` depend on internal crates from the registry, so a per-crate dry run (or a per-crate publish) only works **after** their dependencies are on crates.io — cargo resolves the version dependencies against the index, not the workspace paths, when preparing the tarball. Packaging the whole workspace at once (`cargo package --workspace`, or a bare `cargo publish`, both cargo ≥ 1.90) has no such ordering constraint: cargo resolves the internal dependencies against the locally built packages. The gate runs `cargo package --workspace` and requires it to be **warning-free** — in particular, the CLI's `include` list ships the test suite and its fixtures, because leaving them out made cargo warn about the auto-discovered test targets. To see exactly which files ship:
+## Where versions live (the reconciliation)
 
+Every crate shares one version, defined in as few places as possible:
+
+| What | Where | How |
+| --- | --- | --- |
+| Each crate's own version | `dto`, `player`, `page`, `cli` `Cargo.toml` | `version.workspace = true` — inherited, never written per-crate |
+| The shared version number | `Cargo.toml` → `[workspace.package] version` | The single source of truth |
+| The internal dependency pins | `Cargo.toml` → `[workspace.dependencies]` | `beecast-dto`, `beecast-player`, `beecast-page`, each `{ path = "…", version = "X" }`; the crates reference them as `{ workspace = true }` |
+
+So a release touches exactly **four** literals, all in the root `Cargo.toml`: `[workspace.package] version` and the three internal pins under `[workspace.dependencies]`. Keep them equal.
+
+Why each internal dep carries both `path` and `version`: inside the workspace cargo resolves it by `path`; when publishing, cargo strips the `path` and the published crate depends on the `version`. A path-only dependency cannot be published.
+
+## The packaging gate
+
+Both gates (pre-push and CI — same checks by design, see [`CONTRIBUTING.md`](CONTRIBUTING.md)) run `cargo package --workspace` and require it to be **warning-free**: packaging is the dry run of publishing, and a warning there means the published crates would silently differ from the repo's intent. (Cargo's transient `spurious network error` retry warnings are filtered out — an index hiccup is not a packaging warning.) Packaging the whole workspace at once has no ordering constraint: cargo ≥ 1.90 resolves the internal dependencies against the locally built packages, so this works before anything is on the registry.
+
+To see exactly which files a crate ships:
+
+```console
+$ cargo package -p beecast --list
 ```
-cargo package -p beecast --list
-```
 
-Then the real sequence is: publish `beecast-dto` and `beecast-player`, wait for them to appear on the index, publish `beecast-page`, wait again, then `cargo publish -p beecast --dry-run` and `cargo publish -p beecast`.
+## Releasing, step by step
 
-## Versioning discipline (§7)
+1. **Land all changes and go green.** The full gate must pass and the working tree must be clean (publishing from a dirty tree needs `--allow-dirty` and is discouraged).
 
-Until a crate is published, break freely — no versioning ceremony. Once published, a breaking change MUST bump the **minor** version (not the patch): a patch bump is always safe to take, a minor bump means "read the diff." For `beecast`, the machine-mode JSON shape and the exit-code table are the public surface (§2) — changing what a field or code means is a breaking change.
+2. **Bump the version.** Edit the four literals in the root `Cargo.toml` to the new `X.Y.Z`. Run `cargo build` once so `Cargo.lock` picks up the new version, then commit. (The generated page's footer carries the version, so the byte-pin fingerprints in `cli/tests/cli.rs` need re-pinning with the bump — the failing assertion prints the new values.)
+
+3. **Dry run — verify all four tarballs before anything leaves the machine:**
+
+   ```console
+   $ cargo package --workspace
+   ```
+
+   This packages and verify-builds all four crates against the local sources. It must finish clean (the gate already requires it warning-free).
+
+4. **Publish in order, waiting for each to land.** Recent cargo waits for the index to update before returning, so the next publish sees its dependency:
+
+   ```console
+   $ cargo publish -p beecast-dto
+   $ cargo publish -p beecast-player
+   $ cargo publish -p beecast-page
+   $ cargo publish -p beecast
+   ```
+
+   The last command's verification build pulls everything from the registry — exactly what a user's `cargo install beecast` will do — so a green publish confirms the install path too.
+
+5. **Tag and push.**
+
+   ```console
+   $ git tag vX.Y.Z && git push --tags
+   ```
+
+6. **Verify the published install path.**
+
+   ```console
+   $ cargo install beecast --version X.Y.Z
+   $ beecast --version
+   ```
+
+## Version policy (§7 of the engineering principles)
+
+- Inside the workspace, before a crate's first publish, break freely — no versioning ceremony.
+- Once published, a **breaking change bumps the minor version** (`0.x.z` → `0.(x+1).0`), never the patch; patch releases must always be safe to take.
+- For `beecast`, the machine-mode `--json` document shapes and the exit-code table are the public surface (§2) — changing what a field or code *means* is a breaking change. For `beecast-player`, the JS API (`BeeCastPlayer` / `BeeCastVT`) and the themable CSS variables are the public surface. For `beecast-dto`, the metadata schema is — its `schema/beecast-meta.schema.json` is pinned byte-for-byte in the gate.
