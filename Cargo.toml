@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["dto", "page", "cli"]
+members = ["dto", "player", "page", "cli"]
 
 # One source of truth for the shared package metadata, and for the version every crate inherits (§7).
 [workspace.package]
@@ -20,4 +20,5 @@ thiserror = "2"
 schemars = "1"
 anyhow = "1"
 beecast-dto = { path = "dto", version = "0.3.1" }
+beecast-player = { path = "player", version = "0.3.1" }
 beecast-page = { path = "page", version = "0.3.1" }

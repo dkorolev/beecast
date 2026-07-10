@@ -1,0 +1,18 @@
+[package]
+name = "beecast-player"
+description = "The first-party BeeCast player — a clean-room, dependency-free asciicast (v1/v2/v3) player and VT emulator, exposed as inlinable JS/CSS string constants, with live-follow append for recordings that are still growing."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["asciinema", "terminal", "cast", "player", "vt100"]
+categories = ["visualization", "web-programming", "multimedia"]
+# The published crate is the player itself: the two JS halves and the stylesheet embedded
+# by `lib.rs`, the README with the full API docs, and the MIT license text.
+include = ["/src/", "/README.md", "/LICENSE"]
+
+# No dependencies — deliberately, same as `beecast-page` above it: consumers inline two
+# string constants and inherit nothing transitively.
+[dependencies]

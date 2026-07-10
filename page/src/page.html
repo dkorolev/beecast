@@ -41,7 +41,7 @@ header h1 { margin: 0; font-size: 18px; }
 #chapters button .t { color: #7ab4ff; margin-right: 5px; font-variant-numeric: tabular-nums; }
 /* Fill the viewport below the header/controls so fit:'both' fits vertically too. */
 #player-wrap { flex: 1; padding: 0 16px 10px; min-height: 300px; }
-#player, .scsh-player { width: 100%; height: 100%; max-width: 100%; }
+#player, .beecast-player { width: 100%; height: 100%; max-width: 100%; }
 footer { padding: 0 16px 12px; font-size: 12px; color: #6c7080; }
 </style>
 </head>
@@ -108,7 +108,7 @@ const META = @@BEECAST_META_JSON@@;
     const opts = { fit: 'both', markers: MARKERS, speed: speed, idleTimeLimit: 2 };
     if (startAt != null && startAt > 0) opts.startAt = startAt;
     if (autoPlay) opts.autoPlay = true;
-    player = ScshCastPlayer.create({ data: CAST_DATA }, $('player'), opts);
+    player = BeeCastPlayer.create({ data: CAST_DATA }, $('player'), opts);
   }
 
   document.querySelectorAll('[data-speed]').forEach((b) => {

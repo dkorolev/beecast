@@ -237,12 +237,13 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// escaping, float formatting, and the embedded metadata document. Re-pins since that
 /// capture: the 0.1.0 → 0.2.0 version bump of the footer, then 0.2.1 together with the favicon
 /// swap (the bee emoji became scsh's prompt chevron on a dark tile, recolored red), then the
-/// vendored asciinema-player gave way to the first-party clean-room `scsh-cast-player` (the page
+/// vendored asciinema-player gave way to the first-party clean-room player (the page
 /// shrank ~168KB and now carries a single MIT license), then the 0.3.0 footer stamp of that
 /// change's version bump, then 0.3.1 with the inline-block run fix (multi-row background
-/// panels render as one solid block, no gaps between lines). When the template, the player, or
-/// the workspace version changes *intentionally*, re-pin using the lengths and fingerprints this
-/// assertion prints.
+/// panels render as one solid block, no gaps between lines), then the player graduated into
+/// its own `beecast-player` crate and learned live-follow (`append`). When the
+/// template, the player, or the workspace version changes *intentionally*, re-pin using the
+/// lengths and fingerprints this assertion prints.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -253,7 +254,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (45411, 0x70f527f71d39b834, 45201, 0x9f176bf7a1b7c9a1), "the generated page's bytes moved");
+  assert_eq!(got, (50064, 0xfb8a46bc9fddc835, 49854, 0x2e1c4a0bbdde31dc), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

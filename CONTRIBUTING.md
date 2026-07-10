@@ -1,6 +1,6 @@
 # Contributing
 
-A Cargo workspace with four parts: the [`beecast-dto`](dto) crate (`dto/` — the cast-metadata DTO and the source of truth for the schema), the [`beecast-page`](page) crate (`page/` — the zero-dependency page pipeline: cast inspection and the HTML renderer with the vendored player), the [`beecast`](cli) CLI crate (`cli/` — argument parsing and I/O, depends on both), and the Python `seecast` annotator (`seecast/`). The version is shared once, in the root `[workspace.package]`. Crates publish in dependency order — see [`PUBLISHING.md`](PUBLISHING.md).
+A Cargo workspace with five parts: the [`beecast-dto`](dto) crate (`dto/` — the cast-metadata DTO and the source of truth for the schema), the [`beecast-player`](player) crate (`player/` — the first-party clean-room player and VT emulator as inlinable JS/CSS constants), the [`beecast-page`](page) crate (`page/` — the page pipeline: cast inspection and the HTML renderer, embedding the player crate), the [`beecast`](cli) CLI crate (`cli/` — argument parsing and I/O, depends on the rest), and the Python `seecast` annotator (`seecast/`). The version is shared once, in the root `[workspace.package]`. Crates publish in dependency order — see [`PUBLISHING.md`](PUBLISHING.md).
 
 `dto/schema/beecast-meta.schema.json` is *generated* from the Rust types in `dto/src/lib.rs` (the source of truth) — regenerate with `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`; a unit test in `beecast-dto` pins the shipped file byte-for-byte, and a Python test cross-checks the facts `validate_meta` mirrors, so drift dies in the gate.
 
@@ -11,7 +11,7 @@ Two gates, same checks (`cargo fmt --check`, `cargo clippy --workspace --all-tar
 
 History is linear (rebase, no merge commits). Commit messages are short, complete sentences: capital first letter, trailing period, `backticks` for identifiers. No `Co-Authored-By` trailers.
 
-When updating the first-party player under `page/src/player/` (its canonical copy lives in scsh — keep the two in sync), the `player_bundle_is_inline_safe_and_first_party` test guards the properties the self-contained page depends on, and the byte fingerprints in `cli/tests/cli.rs` need re-pinning (the failing assertion prints the new values).
+When updating the first-party player under `player/src/` (this crate is the canonical home; downstream embedders — scsh's session browser among them — consume `beecast-player` from crates.io, so a player change reaches them as a version bump), the `player_bundle_is_inline_safe_and_first_party` test guards the properties every self-contained embedding depends on, and the byte fingerprints in `cli/tests/cli.rs` need re-pinning (the failing assertion prints the new values).
 
 The annotator lives in `.skills/seecast/scripts/seecast.py` — inside the skill directory so `scsh installskills` carries it whole into consumer repos; `seecast/seecast` is a symlink to it. Keep it single-file and stdlib-only.
 

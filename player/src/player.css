@@ -1,6 +1,6 @@
-/* scsh-cast-player chrome + terminal palette (see README.md in this directory).
-   Clean-room, MIT like scsh. Every color is a variable so embedding pages can theme it. */
-.scsh-player {
+/* beecast-player chrome + terminal palette (see the crate README).
+   Clean-room, MIT like the rest of BeeCast. Every color is a variable so embedding pages can theme it. */
+.beecast-player {
   --sp-bg: #121417;
   --sp-fg: #cdd3dc;
   /* ANSI 0–7 */
@@ -16,7 +16,7 @@
   outline: none;
   overflow: hidden;
 }
-.scsh-player:focus-visible { box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.5); }
+.beecast-player:focus-visible { box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.5); }
 .sp-screen-box { overflow: hidden; }
 .sp-screen {
   margin: 0;

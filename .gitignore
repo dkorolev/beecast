@@ -3,3 +3,5 @@
 __pycache__/
 .env
 .env.*
+# The PR description lives in the GitHub PR body; never track a copy in the repo.
+PR-DESCRIPTION.md

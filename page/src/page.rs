@@ -9,10 +9,9 @@
 use crate::json;
 
 const TEMPLATE: &str = include_str!("page.html");
-// The first-party scsh-cast-player (see `player/README.md` — clean-room, MIT like the
-// rest of BeeCast): the DOM-free VT core and the DOM half, concatenated into one bundle.
-const PLAYER_JS: &str = concat!(include_str!("player/vt.js"), "\n", include_str!("player/player.js"));
-const PLAYER_CSS: &str = include_str!("player/player.css");
+// The first-party player (clean-room, MIT like the rest of BeeCast), from its
+// own `beecast-player` crate: the DOM-free VT core and the DOM half as one bundle.
+use beecast_player::{PLAYER_CSS, PLAYER_JS};
 
 /// The metadata one page renders: plain strings and floats, never serde types, so a caller does
 /// not inherit any dependencies. Chapters are `(seconds, title)` pairs. Validating the metadata
@@ -181,25 +180,10 @@ mod tests {
     assert!(!page.contains("@@BEECAST_"), "all template tokens substituted");
   }
 
-  /// The self-containment claim also depends on the player bundle itself: it must not
-  /// contain a literal `</script`, must not reference workers, and its CSS must not pull
-  /// fonts or images. Asserted here so a future player change that breaks any of it fails
-  /// loudly. And the bundle must be the first-party clean-room player — no third-party
-  /// code, and therefore no third-party license, rides in any generated page.
-  #[test]
-  fn player_bundle_is_inline_safe_and_first_party() {
-    assert!(!PLAYER_JS.contains("</script"), "bundle would terminate the inline <script>");
-    assert!(!PLAYER_JS.contains("<!--"), "bundle would enter the script double-escaped state");
-    assert!(!PLAYER_JS.to_lowercase().contains("worker"), "bundle must not load a worker sidecar");
-    assert!(!PLAYER_CSS.contains("url("), "player CSS must not fetch fonts/images");
-    assert!(PLAYER_JS.contains("ScshCastPlayer") && PLAYER_JS.contains("Clean-room implementation"));
-    for banned in ["asciinema-player", "AsciinemaPlayer", "@license", "Apache"] {
-      assert!(!PLAYER_JS.contains(banned) && !PLAYER_CSS.contains(banned), "third-party marker '{banned}'");
-    }
-  }
-
-  /// The same guarantee end to end: a BUILT page carries no third-party license marker
-  /// either (the bundle check above could miss template regressions).
+  /// The bundle-level guarantees (inline-safety, no workers, no CSS fetches, first-party
+  /// only) are gated in `beecast-player` itself; here the same claim is asserted end to
+  /// end: a BUILT page carries no third-party license marker either (the bundle's own
+  /// check could miss template regressions).
   #[test]
   fn generated_page_carries_no_third_party_marker() {
     let page =
@@ -207,110 +191,5 @@ mod tests {
     for banned in ["asciinema-player", "AsciinemaPlayer", "@license", "Apache"] {
       assert!(!page.contains(banned), "third-party marker '{banned}' in the generated page");
     }
-  }
-
-  /// Behavior tests for the player's DOM-free VT core, run under Node (the same suite that
-  /// gates the canonical copy in scsh). Skips silently when `node` is not installed — the
-  /// structural assertions above still gate the bundle itself.
-  #[test]
-  fn vt_core_node_selftest() {
-    let dir = std::env::temp_dir().join(format!("beecast-vt-selftest-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let bundle = dir.join("player.js");
-    std::fs::write(&bundle, PLAYER_JS).unwrap();
-    let script = r#"
-const assert = require('assert');
-require(process.argv[2]);
-const VT = globalThis.ScshVT;
-
-// v3: intervals sum; term size from the header; resize + marker events survive; # comments skip.
-let c = VT.parseCast('{"version":3,"term":{"cols":10,"rows":3}}\n# note\n[0.5,"o","hi"]\n[0.5,"m","chapter"]\n[1.0,"r","20x5"]\n');
-assert.strictEqual(c.cols, 10); assert.strictEqual(c.rows, 3);
-assert.strictEqual(c.events.length, 3);
-assert.strictEqual(c.duration, 2);
-
-// v2: absolute times.
-c = VT.parseCast('{"version":2,"width":80,"height":24}\n[0.5,"o","a"]\n[2.0,"o","b"]\n');
-assert.strictEqual(c.duration, 2); assert.strictEqual(c.events[1].t, 2);
-
-// v1: one JSON doc, stdout deltas.
-c = VT.parseCast('{"version":1,"width":5,"height":2,"stdout":[[0.1,"x"],[0.2,"y"]]}');
-assert.strictEqual(c.cols, 5); assert.strictEqual(c.events.length, 2);
-
-// Plain text, CR/LF, cursor addressing, erase.
-let t = new VT.Term(10, 3);
-t.write('hello\r\nworld');
-assert.deepStrictEqual(t.textLines(), ['hello', 'world', '']);
-t.write('\x1b[1;3Hga');
-assert.strictEqual(t.textLines()[0], 'hegao');
-t.write('\x1b[2J');
-assert.deepStrictEqual(t.textLines(), ['', '', '']);
-
-// SGR runs merge; 16/256/true color.
-t = new VT.Term(10, 1);
-t.write('\x1b[31mred\x1b[0m ok');
-const runs = t.snapshot().rows[0];
-assert.strictEqual(runs[0].text, 'red'); assert.strictEqual(runs[0].fg, 1);
-t = new VT.Term(4, 1);
-t.write('\x1b[38;5;196mX\x1b[38;2;1;2;3mY');
-assert.strictEqual(t.snapshot().rows[0][0].fg, 196);
-assert.strictEqual(t.snapshot().rows[0][1].fg, '#010203');
-
-// Deferred wrap.
-t = new VT.Term(3, 2);
-t.write('abc');
-assert.strictEqual(t.snapshot().cursor.y, 0);
-t.write('d');
-assert.deepStrictEqual(t.textLines(), ['abc', 'd']);
-
-// Scroll region.
-t = new VT.Term(5, 4);
-t.write('aa\r\nbb\r\ncc\r\ndd');
-t.write('\x1b[2;3r\x1b[3;1H\n');
-assert.strictEqual(t.textLines()[0], 'aa');
-assert.strictEqual(t.textLines()[1], 'cc');
-assert.strictEqual(t.textLines()[3], 'dd');
-
-// Alternate screen restores the primary.
-t = new VT.Term(5, 2);
-t.write('main');
-t.write('\x1b[?1049h\x1b[Halt');
-assert.strictEqual(t.textLines()[0], 'alt');
-t.write('\x1b[?1049l');
-assert.strictEqual(t.textLines()[0], 'main');
-
-// DEC special graphics (tmux borders); OSC consumed; cursor visibility.
-t = new VT.Term(4, 1);
-t.write('\x1b(0qqx\x1b(B');
-assert.strictEqual(t.textLines()[0], '──│');
-t = new VT.Term(8, 1);
-t.write('\x1b]0;title\x07ok');
-assert.strictEqual(t.textLines()[0], 'ok');
-t.write('\x1b[?25l');
-assert.strictEqual(t.snapshot().cursor.visible, false);
-
-console.log('vt selftest OK');
-"#;
-    let spawned = std::process::Command::new("node")
-      .arg("-")
-      .arg(&bundle)
-      .stdin(std::process::Stdio::piped())
-      .stdout(std::process::Stdio::piped())
-      .stderr(std::process::Stdio::piped())
-      .spawn();
-    let Ok(mut child) = spawned else {
-      let _ = std::fs::remove_dir_all(&dir);
-      return; // no node on this machine — the structural tests above still ran
-    };
-    use std::io::Write;
-    child.stdin.take().unwrap().write_all(script.as_bytes()).unwrap();
-    let out = child.wait_with_output().unwrap();
-    let _ = std::fs::remove_dir_all(&dir);
-    assert!(
-      out.status.success() && String::from_utf8_lossy(&out.stdout).contains("vt selftest OK"),
-      "vt selftest failed:\nstdout: {}\nstderr: {}",
-      String::from_utf8_lossy(&out.stdout),
-      String::from_utf8_lossy(&out.stderr)
-    );
   }
 }

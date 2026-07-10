@@ -6,7 +6,7 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 readme = "README.md"
-# All first-party code: `beecast-page` now embeds the clean-room scsh-cast-player, so one
+# All first-party code: `beecast-page` embeds the first-party clean-room player, so one
 # license covers the binary and every generated page.
 license.workspace = true
 keywords = ["asciinema", "terminal", "cast", "player", "html"]
@@ -21,8 +21,8 @@ name = "beecast"
 path = "src/main.rs"
 
 # The metadata types come from the versioned `beecast-dto` crate and the whole page pipeline
-# (cast inspection, the template, the vendored player) from the zero-dependency `beecast-page`
-# crate; the CLI adds argument parsing and I/O on top. `serde_json` builds the machine-mode
+# (cast inspection, the template, the first-party player via `beecast-player`) from the
+# nothing-third-party `beecast-page` crate; the CLI adds argument parsing and I/O on top. `serde_json` builds the machine-mode
 # output documents, and `anyhow` carries error context (§5).
 [dependencies]
 beecast-dto.workspace = true

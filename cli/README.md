@@ -9,7 +9,7 @@ open demo.html                     # play it — fully offline
 
 ## What the page gives you
 
-- **Playback** of asciicast v1, v2, and v3 recordings, via BeeCast's own inlined clean-room `scsh-cast-player` (MIT, like everything else here).
+- **Playback** of asciicast v1, v2, and v3 recordings, via BeeCast's own inlined clean-room player (MIT, like everything else here).
 - **Title and summary** — rendered from the optional metadata sidecar (see below).
 - **Chapter navigation** — one button per chapter, plus markers on the player timeline.
 - **Speed up / slow down** — 0.5× · 1× · 1.5× · 2× · 3×, switchable mid-playback.
@@ -77,4 +77,4 @@ cargo install --path cli                                   # from a checkout (wo
 
 ## License
 
-BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room `scsh-cast-player` from the [`beecast-page`](../page) crate (see [`../page/src/player/README.md`](../page/src/player/README.md)), so no third-party code or license ships in the binary or in any generated page.
+BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room [`beecast-player`](../player) (see [`../player/README.md`](../player/README.md)), so no third-party code or license ships in the binary or in any generated page.

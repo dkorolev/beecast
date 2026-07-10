@@ -1,12 +1,12 @@
 [package]
 name = "beecast-page"
-description = "The BeeCast page pipeline as a library — turn an asciinema .cast recording plus plain-strings metadata into a single self-contained offline .html player page. Zero dependencies."
+description = "The BeeCast page pipeline as a library — turn an asciinema .cast recording plus plain-strings metadata into a single self-contained offline .html player page. Nothing third-party: its only dependency is the zero-dependency beecast-player."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 readme = "README.md"
-# All first-party code, including the clean-room scsh-cast-player the pages embed — one
+# All first-party code, including the clean-room player the pages embed — one
 # license for the crate and for every generated page.
 license.workspace = true
 keywords = ["asciinema", "terminal", "cast", "player", "html"]
@@ -15,6 +15,8 @@ categories = ["visualization", "web-programming"]
 # template), its README, and the MIT license.
 include = ["/src/", "/README.md", "/LICENSE"]
 
-# No dependencies — deliberately. Consumers with tiny dependency trees (`scsh` hand-rolls its JSON on purpose) embed
-# this crate without pulling serde or anyhow; the pipeline's few JSON needs are met by the std-only `json` module.
+# One dependency — the first-party, itself zero-dependency `beecast-player` crate the pages embed. Consumers with
+# tiny dependency trees (`scsh` hand-rolls its JSON on purpose) still inherit nothing third-party: the pipeline's
+# few JSON needs are met by the std-only `json` module.
 [dependencies]
+beecast-player.workspace = true

@@ -8,12 +8,13 @@ Also designed to be self-contained, so that when the file is saved, it's a singl
 
 ## What's in this repo
 
-A Cargo workspace of three published crates, plus a companion annotator:
+A Cargo workspace of four published crates, plus a companion annotator:
 
 | Directory | Crate / tool | What it is |
 | --- | --- | --- |
 | [`dto/`](dto) | `beecast-dto` (crates.io) | The cast-metadata DTO — the `{ title, summary, chapters }` sidecar types, their validator, and the JSON Schema generated from them. The source of truth for the metadata shape. |
-| [`page/`](page) | `beecast-page` (crates.io) | The page pipeline as a **zero-dependency** library — cast inspection plus the renderer that turns cast text and plain-strings metadata into the self-contained `.html`. Ships the vendored player. |
+| [`player/`](player) | `beecast-player` (crates.io) | The first-party clean-room player as a crate — the asciicast player and VT emulator, exposed as inlinable JS/CSS constants, with live-follow `append` for recordings that are still growing. |
+| [`page/`](page) | `beecast-page` (crates.io) | The page pipeline as a library with **nothing third-party** — cast inspection plus the renderer that turns cast text and plain-strings metadata into the self-contained `.html`. Embeds the player from `beecast-player`. |
 | [`cli/`](cli) | `beecast` (crates.io) | The CLI that renders a `.cast` (plus optional sidecar) into one self-contained `.html`. Depends on `beecast-dto` and `beecast-page`. |
 | [`seecast/`](seecast) | `seecast` (repo tool) | The AI annotator (single-file, stdlib-only Python) that writes a sidecar from a recording, via `cursor-agent`. |
 
@@ -34,8 +35,8 @@ Full CLI docs are in [`cli/README.md`](cli/README.md); the metadata shape in [`d
 cargo test --workspace && cargo test --workspace --release
 ```
 
-The crates publish to crates.io in dependency order — `beecast-dto` and `beecast-page` first (they are independent of each other), then `beecast` — as documented in [`PUBLISHING.md`](PUBLISHING.md). Contribution and gate details are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The crates publish to crates.io in dependency order — `beecast-dto` and `beecast-player` first (they are independent of each other), then `beecast-page`, then `beecast` — as documented in [`PUBLISHING.md`](PUBLISHING.md). Contribution and gate details are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-BeeCast is MIT (see [`LICENSE`](LICENSE)) — all of it. The pages embed BeeCast's own clean-room `scsh-cast-player` (written from scratch against the asciicast format and ECMA-48/xterm documentation; see [`page/src/player/README.md`](page/src/player/README.md)), so no third-party code — and no second license — ships in the crates, the binary, or any generated page.
+BeeCast is MIT (see [`LICENSE`](LICENSE)) — all of it. The pages embed BeeCast's own clean-room player, `beecast-player` (written from scratch against the asciicast format and ECMA-48/xterm documentation; see [`player/README.md`](player/README.md)), so no third-party code — and no second license — ships in the crates, the binary, or any generated page.
