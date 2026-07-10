@@ -243,7 +243,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// panels render as one solid block, no gaps between lines), then the player graduated into
 /// its own `beecast-player` crate and learned live-follow (`append`), then `layout()` gained
 /// horizontal centering of the terminal (ported from the scsh session browser, unifying the
-/// two embeddings). When the
+/// two embeddings), then in-band "m" markers started becoming chapter ticks. When the
 /// template, the player, or the workspace version changes *intentionally*, re-pin using the
 /// lengths and fingerprints this assertion prints.
 #[test]
@@ -256,7 +256,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (50373, 0x4016a8c742bf2dc3, 50163, 0xe171e4d81cd2e1f4), "the generated page's bytes moved");
+  assert_eq!(got, (51222, 0xac3177971e228a03, 51012, 0xb05e6a20bc73323a), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
