@@ -5,3 +5,8 @@ __pycache__/
 .env.*
 # The PR description lives in the GitHub PR body; never track a copy in the repo.
 PR-DESCRIPTION.md
+# Browser-test workdir: Node stays a dev-only tool, nothing under these is tracked.
+browser-tests/node_modules/
+browser-tests/test-results/
+browser-tests/playwright-report/
+browser-tests/.artifacts/
