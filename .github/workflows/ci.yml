@@ -25,8 +25,13 @@ jobs:
   # fixture cast, then tested over file:// and a throwaway HTTP server in every engine.
   # CI-required but locally optional — the one deliberate deviation from "pre-push and CI
   # run the same gates" (a three-browser matrix is too heavy for pre-push).
+  #
+  # WebKit runs on macOS, where it is the native engine: on ubuntu, `--with-deps` apt-installs
+  # a WebKit dependency list that takes several minutes and no cache can cover (the
+  # ms-playwright cache holds browser binaries, not system packages) — on macOS there are no
+  # system deps to install at all, and the engine is closer to literal Safari.
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.browser == 'webkit' && 'macos-latest' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -41,9 +46,10 @@ jobs:
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
+          path: ${{ matrix.browser == 'webkit' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ steps.pw.outputs.version }}-${{ matrix.browser }}
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      # --with-deps is the linux apt path; macOS needs no system dependencies.
+      - run: npx playwright install ${{ matrix.browser != 'webkit' && '--with-deps' || '' }} ${{ matrix.browser }}
       - run: npx playwright test --project=${{ matrix.browser }}
       - if: failure()
         uses: actions/upload-artifact@v4
