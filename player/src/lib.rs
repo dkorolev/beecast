@@ -42,6 +42,25 @@ mod tests {
     }
   }
 
+  /// `fit: 'both'` must never vertically scale against a content-sized mount: that path
+  /// was a ResizeObserver shrink ratchet (scsh's live dashboard). The definite-height
+  /// probe and the absence of the old `availH - 4` trigger pin the fix in the bundle.
+  #[test]
+  fn fit_both_refuses_the_content_sized_shrink_ratchet() {
+    assert!(
+      PLAYER_JS.contains("mountHeightIsDefinite"),
+      "layout must probe whether the mount's height is independent of the screen box"
+    );
+    assert!(
+      PLAYER_JS.contains("before > 0 && before === after"),
+      "definite-height probe must compare mount clientHeight before/after collapsing the box"
+    );
+    assert!(
+      !PLAYER_JS.contains("availH - 4"),
+      "the availH-4 trigger forced another shrink on every ResizeObserver tick"
+    );
+  }
+
   /// Phase 0: the public surface must not shrink without an intentional change.
   #[test]
   fn public_api_surface_is_documented() {
@@ -371,6 +390,36 @@ c4.setMarkers([[0.5, 'half']]);
 assert.ok(types.includes('markerchange'), 'markerchange delivered');
 assert.strictEqual(c4.getState().markers.filter(m => m.source === 'integration').length, 1);
 c4.dispose();
+
+// ---- fit:'both' scale rule: content-sized mounts must not ratchet -----------------
+// Mirrors layout()'s definite-height gate (vertical fit only when the mount's height
+// does not track the screen box). The old `availH - 4` trigger shrank forever on
+// content-sized embeds.
+function fitScale(naturalH, availH, definite) {
+  let scale = 1;
+  if (definite && availH > 40 && naturalH * scale > availH) {
+    scale = Math.min(scale, availH / naturalH);
+  }
+  return scale;
+}
+let contentH = 400;
+const natural = 400, bar = 32;
+for (let i = 0; i < 30; i++) {
+  // Content-sized: mount height tracks the box — vertical fit must stay off.
+  const s = fitScale(natural, contentH - bar, false);
+  assert.strictEqual(s, 1, 'content-sized mount must not vertically scale');
+  contentH = natural * s + bar;
+}
+const short = fitScale(400, 200 - 32, true);
+assert.ok(short < 1 && short > 0, 'definite short mount scales down once');
+assert.strictEqual(fitScale(400, 200 - 32, true), short, 'definite scale is stable');
+// The banned ratchet: subtracting 4 from availH forces another shrink every pass.
+let ratchetH = 400;
+for (let i = 0; i < 5; i++) {
+  const avail = ratchetH - bar;
+  if (natural > avail - 4) ratchetH = natural * ((avail - 4) / natural) + bar;
+}
+assert.ok(ratchetH < 390, 'sanity: the old availH-4 rule really does ratchet');
 
 console.log('vt selftest OK');
 "#;

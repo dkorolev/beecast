@@ -227,8 +227,11 @@ markers, and `?t=` deep links all use the recording's own clock.
 
 **Layout.** With `fit` set, the fixed-metric terminal scales *down* (never up) to the
 containing box's width — and, for `fit: 'both'`, also to the mount's height when the
-embedding page gives it one. Whenever the terminal (scaled or not) ends up narrower than
-its pane, it is centered horizontally.
+embedding page gives the mount a *definite* height (`%`, `vh`, flex/grid stretch,
+fullscreen). A content-sized mount (height comes from the player itself) is width-only:
+vertical fit against a height the player controls is a `ResizeObserver` shrink ratchet.
+Whenever the terminal (scaled or not) ends up narrower than its pane, it is centered
+horizontally.
 
 **The big play button.** While the recording sits at its very start, a large center play
 glyph — block characters shaped as a triangle — dims the screen behind it; one click
