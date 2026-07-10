@@ -11,6 +11,17 @@ const VT = root.BeeCastVT;
 const SEEK_STEP_SECS = 5;
 const SPEEDS = [0.5, 1, 1.5, 2, 3, 5];
 
+// The big center play glyph: block characters, because this is a terminal player. Widths
+// double the row steps so the triangle reads as wide as it is tall in a monospace cell.
+const BIG_PLAY =
+  '██\n' +
+  '██████\n' +
+  '██████████\n' +
+  '██████████████\n' +
+  '██████████\n' +
+  '██████\n' +
+  '██';
+
 // ---- rendering -------------------------------------------------------------------------
 const ATTR_CLASSES = [
   [VT.A_BOLD, 'sp-b'], [VT.A_DIM, 'sp-d'], [VT.A_ITALIC, 'sp-i'],
@@ -112,6 +123,8 @@ function Player(src, mount, opts) {
   if (opts.startAt != null) this.seek(parseTime(opts.startAt));
   this.render();
   this.layout();
+  this.syncOverlay();
+  this.syncChaptersUi();
   if (opts.autoPlay) this.play();
   const self = this;
   if (typeof ResizeObserver !== 'undefined') {
@@ -130,14 +143,21 @@ Player.prototype.buildDom = function (mount, controls) {
   root.className = 'beecast-player';
   root.tabIndex = 0;
   root.innerHTML =
-    '<div class="sp-screen-box"><pre class="sp-screen"></pre></div>' +
+    '<div class="sp-screen-box"><pre class="sp-screen"></pre>' +
+    '<div class="sp-overlay" hidden><pre class="sp-bigplay">' + BIG_PLAY + '</pre></div>' +
+    '<div class="sp-chapters" hidden></div>' +
+    '</div>' +
     (controls
       ? '<div class="sp-bar">' +
         '<button class="sp-play" type="button" title="play/pause (space)">▶</button>' +
         '<span class="sp-time">0:00</span>' +
         '<div class="sp-seek"><div class="sp-fill"></div><div class="sp-markers"></div></div>' +
         '<span class="sp-dur">0:00</span>' +
+        '<button class="sp-chapbtn" type="button" title="chapters (c)" hidden>☰</button>' +
+        '<span class="sp-speedwrap">' +
         '<button class="sp-speed" type="button" title="speed (&lt; / &gt;)">1×</button>' +
+        '<div class="sp-speedmenu" hidden></div>' +
+        '</span>' +
         '<button class="sp-fs" type="button" title="fullscreen (f)">⛶</button>' +
         '</div>'
       : '');
@@ -152,7 +172,25 @@ Player.prototype.buildDom = function (mount, controls) {
   this.speedBtn = root.querySelector('.sp-speed');
   if (this.durEl) this.durEl.textContent = fmtClock(this.cast.duration);
   if (this.playBtn) this.playBtn.addEventListener('click', function () { self.toggle(); });
-  if (this.speedBtn) this.speedBtn.addEventListener('click', function () { self.cycleSpeed(1); });
+  // A big center play button while the recording sits at its very start: click plays.
+  // The click must not bubble to the root's focus handler AND the pane's own listeners.
+  this.overlayEl = root.querySelector('.sp-overlay');
+  this.overlayEl.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    self.play();
+    try { root.focus({ preventScroll: true }); } catch (_) { root.focus(); }
+  });
+  // The speed button opens a menu of the fixed speeds, growing UP from the bar.
+  this.speedMenuEl = root.querySelector('.sp-speedmenu');
+  if (this.speedBtn) {
+    this.speedBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      self.toggleSpeedMenu();
+    });
+  }
+  this.chapBtn = root.querySelector('.sp-chapbtn');
+  this.chaptersEl = root.querySelector('.sp-chapters');
+  if (this.chapBtn) this.chapBtn.addEventListener('click', function () { self.toggleChapters(); });
   this.fsBtn = root.querySelector('.sp-fs');
   if (this.fsBtn) this.fsBtn.addEventListener('click', function () { self.toggleFullscreen(); });
   if (this.seekEl) {
@@ -188,6 +226,90 @@ Player.prototype.absorbMarkers = function (fromIdx) {
   if (grew) this.markers.sort(function (a, b) { return a.t - b.t; });
 };
 
+// The big center play button shows only while the recording sits at its very start —
+// paused mid-way (including a live player parked at the growing edge) stays undimmed.
+Player.prototype.syncOverlay = function () {
+  if (!this.overlayEl) return;
+  this.overlayEl.hidden = !(!this.playing && this.pacedPos <= 1e-9 && this.cast.duration > 0);
+};
+
+// ---- chapters panel (a scrollable list over the screen's right edge) --------------------
+Player.prototype.toggleChapters = function () {
+  if (!this.chaptersEl) return;
+  this.chaptersEl.hidden = !this.chaptersEl.hidden;
+  if (!this.chaptersEl.hidden) this.renderChapters();
+};
+
+Player.prototype.renderChapters = function () {
+  if (!this.chaptersEl) return;
+  const self = this;
+  this.chaptersEl.innerHTML = '';
+  for (const m of this.markers) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'sp-chap';
+    const t = document.createElement('span');
+    t.className = 'sp-chap-t';
+    t.textContent = fmtClock(m.t);
+    row.appendChild(t);
+    row.appendChild(document.createTextNode(m.label || ''));
+    row.addEventListener('click', (function (at) {
+      return function (ev) { ev.stopPropagation(); self.seek(at); self.play(); };
+    })(m.t));
+    this.chaptersEl.appendChild(row);
+  }
+};
+
+// The ☰ button appears once the recording has chapters at all — markers can also arrive
+// live through append(), so this re-runs on every absorb.
+Player.prototype.syncChaptersUi = function () {
+  if (this.chapBtn) this.chapBtn.hidden = this.markers.length === 0;
+  if (this.chaptersEl && !this.chaptersEl.hidden) this.renderChapters();
+};
+
+// ---- speed menu (fixed speeds, growing UP from the bar button) --------------------------
+Player.prototype.toggleSpeedMenu = function (force) {
+  if (!this.speedMenuEl) return;
+  const show = force != null ? force : this.speedMenuEl.hidden;
+  if (show === !this.speedMenuEl.hidden) return;
+  const self = this;
+  if (show) {
+    this.renderSpeedMenu();
+    this.speedMenuEl.hidden = false;
+    // Any click outside the menu dismisses it (the button's own click stops propagation).
+    this.speedAway = function () { self.toggleSpeedMenu(false); };
+    document.addEventListener('click', this.speedAway);
+  } else {
+    this.speedMenuEl.hidden = true;
+    if (this.speedAway) { document.removeEventListener('click', this.speedAway); this.speedAway = null; }
+  }
+};
+
+Player.prototype.renderSpeedMenu = function () {
+  if (!this.speedMenuEl) return;
+  const self = this;
+  this.speedMenuEl.innerHTML = '';
+  // Fastest at the top: the menu grows upward, so the list reads descending toward 1×.
+  for (let i = SPEEDS.length - 1; i >= 0; i--) {
+    const v = SPEEDS[i];
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sp-speedopt' + (v === this.speed ? ' sp-on' : '');
+    b.textContent = String(v).replace(/\.0$/, '') + '×';
+    b.addEventListener('click', (function (speed) {
+      return function (ev) { ev.stopPropagation(); self.setSpeed(speed); self.toggleSpeedMenu(false); };
+    })(v));
+    this.speedMenuEl.appendChild(b);
+  }
+};
+
+Player.prototype.setSpeed = function (v) {
+  if (SPEEDS.indexOf(v) < 0) return;
+  this.speed = v;
+  if (this.speedBtn) this.speedBtn.textContent = String(v).replace(/\.0$/, '') + '×';
+  if (this.speedMenuEl && !this.speedMenuEl.hidden) this.renderSpeedMenu();
+};
+
 // (Re)place the chapter ticks: their positions are percentages of the duration, so a
 // growing live recording shifts them left as it lengthens.
 Player.prototype.layoutMarkers = function () {
@@ -213,6 +335,7 @@ Player.prototype.onKey = function (ev) {
   else if (k === '>' || k === '.') this.cycleSpeed(1);
   else if (k === '[') this.jumpMarker(-1);
   else if (k === ']') this.jumpMarker(1);
+  else if (k === 'c' || k === 'C') this.toggleChapters();
   else if (k === 'f' || k === 'F') this.toggleFullscreen();
   else return;
   ev.preventDefault();
@@ -234,9 +357,7 @@ Player.prototype.jumpMarker = function (dir) {
 
 Player.prototype.cycleSpeed = function (dir) {
   const i = SPEEDS.indexOf(this.speed);
-  const next = SPEEDS[Math.min(SPEEDS.length - 1, Math.max(0, (i < 0 ? 1 : i) + dir))];
-  this.speed = next;
-  if (this.speedBtn) this.speedBtn.textContent = String(next).replace(/\.0$/, '') + '×';
+  this.setSpeed(SPEEDS[Math.min(SPEEDS.length - 1, Math.max(0, (i < 0 ? 1 : i) + dir))]);
 };
 
 // Apply events so that exactly those with recording time <= t are in the terminal.
@@ -331,6 +452,7 @@ Player.prototype.play = function () {
   this.playing = true;
   this.lastTick = null;
   if (this.playBtn) this.playBtn.textContent = '⏸';
+  this.syncOverlay();
   const self = this;
   this.raf = requestAnimationFrame(function (ts) { self.tick(ts); });
 };
@@ -339,6 +461,7 @@ Player.prototype.pause = function () {
   this.playing = false;
   if (this.raf != null) { cancelAnimationFrame(this.raf); this.raf = null; }
   if (this.playBtn) this.playBtn.textContent = '▶';
+  this.syncOverlay();
 };
 
 Player.prototype.toggle = function () { if (this.playing) this.pause(); else this.play(); };
@@ -348,6 +471,7 @@ Player.prototype.seek = function (t) {
   this.pacedPos = VT.mapTime(this.pacing.rec, this.pacing.paced, t);
   this.applyEventsUpTo(t);
   this.render();
+  this.syncOverlay();
 };
 
 Player.prototype.getCurrentTime = function () {
@@ -374,6 +498,7 @@ Player.prototype.append = function (text) {
   this.absorbMarkers(fromIdx);
   if (this.durEl) this.durEl.textContent = fmtClock(this.cast.duration);
   this.layoutMarkers();
+  this.syncChaptersUi();
   if (atEdge) {
     this.pacedPos = this.pacing.pacedDuration;
     this.applyEventsUpTo(this.getCurrentTime());
@@ -381,11 +506,13 @@ Player.prototype.append = function (text) {
   } else {
     this.renderBar(); // same playhead, longer recording: only the bar's proportions move
   }
+  this.syncOverlay();
 };
 
 Player.prototype.dispose = function () {
   this.disposed = true;
   this.pause();
+  if (this.speedAway) { document.removeEventListener('click', this.speedAway); this.speedAway = null; }
   if (this.resizeObs) { try { this.resizeObs.disconnect(); } catch (_) {} this.resizeObs = null; }
   if (this.fsHandler) { document.removeEventListener('fullscreenchange', this.fsHandler); this.fsHandler = null; }
   if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);

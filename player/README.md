@@ -67,7 +67,22 @@ embedding page gives it one. Whenever the terminal (scaled or not) ends up narro
 its pane, it is centered horizontally in it.
 
 Keyboard, when the player has focus: **space** play/pause · **←/→** seek ±5s ·
-**< / >** speed down/up · **[ / ]** previous/next marker · **f** fullscreen.
+**< / >** speed down/up · **[ / ]** previous/next marker · **c** chapters panel ·
+**f** fullscreen.
+
+**The big play button.** While the recording sits at its very start, a large center play
+glyph — built from block characters, because this is a terminal player — dims the screen
+behind it; one click starts playback. It never appears mid-recording, so a live player
+parked at the growing edge stays undimmed.
+
+**Chapters** are part of the player: when the recording has markers (from `opts.markers`
+or in-band `m` events, including ones that arrive live through `append`), a ☰ button
+joins the control bar and toggles a fixed, scrollable panel over the screen's right edge —
+one row per chapter, click to jump there and play. The `c` key toggles it too.
+
+**Speed** is a menu, not a cycle: the `1×` button opens the fixed speeds in a small menu
+growing *up* from the bar (fastest on top, current highlighted); `<` / `>` still step
+through them from the keyboard.
 
 **Fullscreen** is part of the player: the ⛶ button at the right end of the control bar
 (and the `f` key) fullscreens `fullscreenEl` — or the player itself — and the terminal
