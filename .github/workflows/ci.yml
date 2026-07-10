@@ -12,10 +12,11 @@ jobs:
       - run: cargo test --workspace
       - run: cargo test --workspace --release
       - run: python3 -m unittest discover -s seecast/tests -v
-      # Packaging (the dry run of publishing) must be warning-free.
+      # Packaging (the dry run of publishing) must be warning-free. Cargo's transient
+      # "spurious network error" retry warnings from the index fetch are not packaging
+      # warnings — filter them out before the gate, or a network hiccup fails the build.
       - run: |
           pkg_out="$(cargo package --workspace 2>&1)" || { printf '%s\n' "$pkg_out"; exit 1; }
           printf '%s\n' "$pkg_out"
-          case "$pkg_out" in
-            *warning:*) echo "cargo package must be warning-free"; exit 1;;
-          esac
+          real="$(printf '%s\n' "$pkg_out" | grep 'warning:' | grep -v 'spurious network error' || true)"
+          if [ -n "$real" ]; then echo "cargo package must be warning-free"; exit 1; fi
