@@ -45,6 +45,8 @@ const player = BeeCastPlayer.create({ data: castText }, mountElement, {
   startAt: 12.5,      // seconds, or a 'mm:ss' string
   speed: 1.5,         // initial speed (one of 0.5, 1, 1.5, 2, 3, 5)
   autoPlay: true,     // start playing immediately
+  fullscreenEl: el,   // what the ⛶ button / `f` key fullscreens (default: the player);
+                      //   pass a wrapper to bring the page's own chrome along
 });
 player.play();
 player.pause();
@@ -65,7 +67,12 @@ embedding page gives it one. Whenever the terminal (scaled or not) ends up narro
 its pane, it is centered horizontally in it.
 
 Keyboard, when the player has focus: **space** play/pause · **←/→** seek ±5s ·
-**< / >** speed down/up · **[ / ]** previous/next marker.
+**< / >** speed down/up · **[ / ]** previous/next marker · **f** fullscreen.
+
+**Fullscreen** is part of the player: the ⛶ button at the right end of the control bar
+(and the `f` key) fullscreens `fullscreenEl` — or the player itself — and the terminal
+refits and centers in the viewport. Offline pages built with `beecast-page` get it with
+no page code at all.
 
 ## Live-follow
 

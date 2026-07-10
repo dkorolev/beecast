@@ -245,7 +245,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// horizontal centering of the terminal (ported from the scsh session browser, unifying the
 /// two embeddings), then in-band "m" markers started becoming chapter ticks, then the 0.4.0
 /// footer stamp of that minor bump (a new crate and a new API), then the 0.4.1 stamp of the
-/// release-automation patch. When the
+/// release-automation patch, then 0.4.2 when fullscreen moved INTO the player (the ⛶ bar
+/// button + the `f` key, fullscreening `fullscreenEl` or the player itself). When the
 /// template, the player, or the workspace version changes *intentionally*, re-pin using the
 /// lengths and fingerprints this assertion prints.
 #[test]
@@ -258,7 +259,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (51222, 0x3df6c10502a87406, 51012, 0xb537b0bff26a3f0b), "the generated page's bytes moved");
+  assert_eq!(got, (53006, 0x5a3196d341f10b59, 52796, 0x717a0a77d15be180), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
