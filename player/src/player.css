@@ -17,6 +17,12 @@
   overflow: hidden;
 }
 .beecast-player:focus-visible { box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.5); }
+/* A fullscreened player centers the terminal block (screen + bar) in the viewport;
+   layout() sizes the screen box to the viewport minus the bar. */
+.beecast-player:fullscreen {
+  width: 100%; height: 100%; border-radius: 0;
+  display: flex; flex-direction: column; justify-content: center;
+}
 .sp-screen-box { overflow: hidden; }
 .sp-screen {
   margin: 0;

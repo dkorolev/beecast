@@ -102,6 +102,9 @@ function Player(src, mount, opts) {
   this.raf = null;
   this.lastTick = null;
   this.disposed = false;
+  // The fullscreen target: the embedding page may pass a wrapper (its own chrome — a
+  // chapters sidebar, a toolbar — rides along into fullscreen); default is the player.
+  this.fsEl = opts.fullscreenEl || null;
   this.buildDom(mount, opts.controls !== false);
   if (this.speedBtn) this.speedBtn.textContent = String(this.speed).replace(/\.0$/, '') + '\u00d7';
   this.fit = opts.fit || null;
@@ -115,6 +118,10 @@ function Player(src, mount, opts) {
     this.resizeObs = new ResizeObserver(function () { self.layout(); });
     this.resizeObs.observe(this.root.parentNode || this.root);
   }
+  // Entering/leaving fullscreen resizes the root itself, which the parent-watching
+  // ResizeObserver may not notice — refit explicitly.
+  this.fsHandler = function () { self.layout(); };
+  document.addEventListener('fullscreenchange', this.fsHandler);
 }
 
 Player.prototype.buildDom = function (mount, controls) {
@@ -131,6 +138,7 @@ Player.prototype.buildDom = function (mount, controls) {
         '<div class="sp-seek"><div class="sp-fill"></div><div class="sp-markers"></div></div>' +
         '<span class="sp-dur">0:00</span>' +
         '<button class="sp-speed" type="button" title="speed (&lt; / &gt;)">1×</button>' +
+        '<button class="sp-fs" type="button" title="fullscreen (f)">⛶</button>' +
         '</div>'
       : '');
   mount.appendChild(root);
@@ -145,6 +153,8 @@ Player.prototype.buildDom = function (mount, controls) {
   if (this.durEl) this.durEl.textContent = fmtClock(this.cast.duration);
   if (this.playBtn) this.playBtn.addEventListener('click', function () { self.toggle(); });
   if (this.speedBtn) this.speedBtn.addEventListener('click', function () { self.cycleSpeed(1); });
+  this.fsBtn = root.querySelector('.sp-fs');
+  if (this.fsBtn) this.fsBtn.addEventListener('click', function () { self.toggleFullscreen(); });
   if (this.seekEl) {
     const seekTo = function (ev) {
       const r = self.seekEl.getBoundingClientRect();
@@ -203,6 +213,7 @@ Player.prototype.onKey = function (ev) {
   else if (k === '>' || k === '.') this.cycleSpeed(1);
   else if (k === '[') this.jumpMarker(-1);
   else if (k === ']') this.jumpMarker(1);
+  else if (k === 'f' || k === 'F') this.toggleFullscreen();
   else return;
   ev.preventDefault();
   ev.stopPropagation();
@@ -263,6 +274,17 @@ Player.prototype.renderBar = function () {
   if (this.fillEl) this.fillEl.style.width = (this.cast.duration > 0 ? Math.min(100, (t / this.cast.duration) * 100) : 0) + '%';
 };
 
+// Toggle fullscreen on the embedder-supplied wrapper (fullscreenEl) or the player itself.
+// Bound to the ⛶ bar button and the `f` key; a no-op where the Fullscreen API is absent.
+Player.prototype.toggleFullscreen = function () {
+  const el = this.fsEl || this.root;
+  if (document.fullscreenElement === el) {
+    if (document.exitFullscreen) document.exitFullscreen();
+  } else if (el.requestFullscreen) {
+    el.requestFullscreen();
+  }
+};
+
 // fit: scale the fixed-metric terminal down (never up) to the containing box's width —
 // and, for fit:'both', also to the mount's height when the embedding page gives it one
 // (a definite flex/viewport height; a content-sized mount never shrinks the terminal).
@@ -277,7 +299,9 @@ Player.prototype.layout = function () {
   let scale = availW > 0 && naturalW > availW ? availW / naturalW : 1;
   if (this.fit === 'both' && this.root.parentNode) {
     const bar = this.root.querySelector('.sp-bar');
-    const availH = this.root.parentNode.clientHeight - (bar ? bar.offsetHeight : 0);
+    // A fullscreened root answers to the viewport, not to the (now-behind) mount.
+    const holder = document.fullscreenElement === this.root ? this.root : this.root.parentNode;
+    const availH = holder.clientHeight - (bar ? bar.offsetHeight : 0);
     // The 2px slack keeps a content-sized mount (whose height IS the terminal's) stable.
     if (availH > 40 && naturalH * scale > availH + 2) scale = Math.min(scale, availH / naturalH);
   }
@@ -363,6 +387,7 @@ Player.prototype.dispose = function () {
   this.disposed = true;
   this.pause();
   if (this.resizeObs) { try { this.resizeObs.disconnect(); } catch (_) {} this.resizeObs = null; }
+  if (this.fsHandler) { document.removeEventListener('fullscreenchange', this.fsHandler); this.fsHandler = null; }
   if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);
 };
 
