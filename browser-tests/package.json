@@ -1,0 +1,11 @@
+{
+  "name": "beecast-browser-tests",
+  "private": true,
+  "description": "Playwright gates over the real generated page. CI-required, locally optional; never published.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0"
+  }
+}

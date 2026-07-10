@@ -20,3 +20,34 @@ jobs:
           printf '%s\n' "$pkg_out"
           real="$(printf '%s\n' "$pkg_out" | grep 'warning:' | grep -v 'spurious network error' || true)"
           if [ -n "$real" ]; then echo "cargo package must be warning-free"; exit 1; fi
+
+  # Browser gates over the real artifact: the page is built with the actual CLI from the
+  # fixture cast, then tested over file:// and a throwaway HTTP server in every engine.
+  # CI-required but locally optional — the one deliberate deviation from "pre-push and CI
+  # run the same gates" (a three-browser matrix is too heavy for pre-push).
+  browser:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: browser-tests
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.pw.outputs.version }}-${{ matrix.browser }}
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test --project=${{ matrix.browser }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.browser }}
+          path: browser-tests/test-results/
+          if-no-files-found: ignore
