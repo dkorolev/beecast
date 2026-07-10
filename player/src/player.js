@@ -12,16 +12,8 @@ const Controller = root.BeeCastController;
 const SEEK_STEP_SECS = 5;
 const SPEEDS = Controller.SPEEDS;
 
-// The big center play glyph: a solid right-pointing triangle in block characters.
-// Half-block edges soften the silhouette so it reads as a play icon, not a staircase.
-const BIG_PLAY =
-  '  ▄█\n' +
-  ' ████\n' +
-  '██████\n' +
-  '████████\n' +
-  '██████\n' +
-  ' ████\n' +
-  '  ▀█';
+// Center play affordance: a large monospace `|>` — reads as play without a bitmap icon.
+const BIG_PLAY = '|&gt;';
 
 const ICON_PLAY = '▶';
 const ICON_PAUSE = '⏸';
@@ -322,7 +314,7 @@ Player.prototype.buildDom = function (mount, cfg) {
       ? '<pre class="sp-a11y" part="terminal-text"></pre>'
       : '') +
     '<div class="sp-overlay" part="overlay" hidden role="button" tabindex="0" ' +
-    'aria-label="Play recording"><pre class="sp-bigplay" aria-hidden="true">' + BIG_PLAY + '</pre></div>' +
+    'aria-label="Play recording"><span class="sp-bigplay" aria-hidden="true">' + BIG_PLAY + '</span></div>' +
     '<div class="sp-chapters" part="chapter-panel" role="menu" hidden></div>' +
     '</div>' + bar;
 

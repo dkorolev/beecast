@@ -91,7 +91,7 @@
 
 .sp-screen-box { overflow: hidden; position: relative; }
 
-/* Center play overlay: soft dim + refined block-character glyph */
+/* Center play overlay: soft dim + a large monospace `|>` as the play icon. */
 .sp-overlay {
   position: absolute; inset: 0; z-index: 3;
   display: flex; align-items: center; justify-content: center;
@@ -104,8 +104,8 @@
 }
 .sp-bigplay {
   margin: 0;
-  font: 14px/1.05 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.02em;
+  font: 700 7rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: -0.08em;
   color: #fff;
   opacity: 0.92;
   text-shadow:

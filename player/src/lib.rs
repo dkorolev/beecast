@@ -56,6 +56,8 @@ mod tests {
       !PLAYER_JS.contains("this.play(origin || 'marker')") && !PLAYER_JS.contains("self.play('marker')"),
       "marker/chapter navigation must not force play"
     );
+    assert!(PLAYER_JS.contains("'|&gt;'") || PLAYER_JS.contains("\"|&gt;\""), "play overlay is a large monospace |>");
+    assert!(!PLAYER_JS.contains("▄█"), "the block-character triangle glyph must stay gone");
   }
 
   /// `fit: 'both'` must never vertically scale against a content-sized mount: that path

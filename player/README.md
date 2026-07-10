@@ -235,8 +235,8 @@ Whenever the terminal (scaled or not) ends up narrower than its pane, it is cent
 horizontally.
 
 **The big play button.** Whenever playback is not running — at the start, paused
-mid-recording, or ended — a large center play glyph (block characters shaped as a
-triangle) dims the screen behind it; one click starts (or resumes) playback.
+mid-recording, or ended — a large monospace `|>` dims the screen behind it; one click
+starts (or resumes) playback.
 
 **Live-follow.** Feed each new chunk of v2/v3 NDJSON to `append(text)`. Chunk boundaries
 are free; partial trailing lines buffer until complete. A playhead at the live edge stays
