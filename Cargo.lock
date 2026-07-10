@@ -10,7 +10,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "beecast"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "beecast-dto",
@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "beecast-dto"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "schemars",
  "serde",
@@ -30,14 +30,14 @@ dependencies = [
 
 [[package]]
 name = "beecast-page"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "beecast-player",
 ]
 
 [[package]]
 name = "beecast-player"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "dyn-clone"
