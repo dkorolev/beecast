@@ -40,7 +40,8 @@ const player = BeeCastPlayer.create({ data: castText }, mountElement, {
   fit: 'both',        // scale the terminal to the container (width, or width + height)
   controls: true,     // render the control bar (default true)
   idleTimeLimit: 2,   // cap silent gaps at N seconds of playback time
-  markers: [[t, 'label'], …],  // chapter ticks on the seek bar
+  markers: [[t, 'label'], …],  // chapter ticks on the seek bar (the recording's own
+                      //   in-band "m" markers are added automatically, at load and live)
   startAt: 12.5,      // seconds, or a 'mm:ss' string
   speed: 1.5,         // initial speed (one of 0.5, 1, 1.5, 2, 3, 5)
   autoPlay: true,     // start playing immediately
@@ -84,6 +85,8 @@ a tailed file — is the caller's business; the player owns everything after tha
   up and follow.
 - A player mounted on an empty live cast (header only, `duration` 0) follows from the
   first byte with no extra configuration.
+- In-band `m` (marker) events become chapter ticks as they arrive, so the seek bar shows
+  the same chapters live as it would after a reload.
 
 v1 recordings are a single JSON document with no line to append to; `append` on them is a
 no-op by design.
