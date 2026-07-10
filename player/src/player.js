@@ -165,7 +165,9 @@ function Player(src, mount, opts) {
   if (opts.autoPlay) this.play();
   const self = this;
   if (typeof ResizeObserver !== 'undefined') {
-    this.resizeObs = new ResizeObserver(function () { self.layout(); });
+    this.resizeObs = new ResizeObserver(function () {
+      if (!self._layouting) self.layout();
+    });
     this.resizeObs.observe(this.root.parentNode || this.root);
   }
   this.fsHandler = function () { self.layout(); };
@@ -593,55 +595,87 @@ Player.prototype.onKey = function (ev) {
   ev.stopPropagation();
 };
 
+// True when `mount`'s height does not depend on `box` — i.e. the embedding page gave the
+// mount a definite height (%, vh, flex/grid stretch, …). A content-sized mount shrinks when
+// the box does; vertical fit against that height is a ResizeObserver shrink ratchet.
+Player.prototype.mountHeightIsDefinite = function (mount, box) {
+  if (!mount || !box) return false;
+  const prev = box.style.height;
+  const before = mount.clientHeight;
+  box.style.height = '0px';
+  const after = mount.clientHeight;
+  box.style.height = prev;
+  return before > 0 && before === after;
+};
+
 Player.prototype.layout = function () {
-  if (!this.fit || !this.root) return;
-  const box = this.root.querySelector('.sp-screen-box');
-  if (!box || !this.screenEl) return;
-  this.screenEl.style.transform = '';
-  this.screenEl.style.marginLeft = '';
-  const rect = this.screenEl.getBoundingClientRect();
-  const naturalW = rect.width, naturalH = rect.height;
-  if (!(naturalW > 0 && naturalH > 0)) return;
+  if (!this.fit || !this.root || this._layouting) return;
+  this._layouting = true;
+  try {
+    const box = this.root.querySelector('.sp-screen-box');
+    if (!box || !this.screenEl) return;
+    this.screenEl.style.transform = '';
+    this.screenEl.style.marginLeft = '';
+    const rect = this.screenEl.getBoundingClientRect();
+    const naturalW = rect.width, naturalH = rect.height;
+    if (!(naturalW > 0 && naturalH > 0)) return;
 
-  const fs = typeof document !== 'undefined' ? document.fullscreenElement : null;
-  const rootFs = fs === this.root;
-  const wrapFs = !!(this.fsEl && fs === this.fsEl);
-  const bar = this.root.querySelector('.sp-bar');
-  const barH = bar ? Math.max(bar.offsetHeight, Math.ceil(bar.getBoundingClientRect().height)) : 0;
+    const fs = typeof document !== 'undefined' ? document.fullscreenElement : null;
+    const rootFs = fs === this.root;
+    const wrapFs = !!(this.fsEl && fs === this.fsEl);
+    const bar = this.root.querySelector('.sp-bar');
+    const barH = bar ? Math.max(bar.offsetHeight, Math.ceil(bar.getBoundingClientRect().height)) : 0;
 
-  // Width budget: the screen pane, falling back to the mount/fullscreen host.
-  let availW = box.clientWidth;
-  if (!(availW > 0)) {
-    const host = rootFs ? this.root : (wrapFs ? this.fsEl : this.root.parentNode);
-    availW = host ? host.clientWidth : 0;
-  }
-  let scale = availW > 0 && naturalW > availW ? availW / naturalW : 1;
-
-  if (this.fit === 'both') {
-    let availH = 0;
-    if (rootFs) {
-      // Bar is flex-pinned to the bottom; terminal gets everything above it.
-      availH = this.root.clientHeight - barH;
-    } else if (wrapFs && this.fsEl) {
-      availH = this.fsEl.clientHeight - barH;
-    } else if (this.root.parentNode) {
-      availH = this.root.parentNode.clientHeight - barH;
+    // Width budget: the screen pane, falling back to the mount/fullscreen host.
+    let availW = box.clientWidth;
+    if (!(availW > 0)) {
+      const host = rootFs ? this.root : (wrapFs ? this.fsEl : this.root.parentNode);
+      availW = host ? host.clientWidth : 0;
     }
-    // A few px of slack avoids subpixel overflow that used to clip the bar (and the
-    // speed control) under overflow:hidden.
-    if (availH > 40 && naturalH * scale > availH - 4) {
-      scale = Math.min(scale, (availH - 4) / naturalH);
-    }
-  }
+    let scale = availW > 0 && naturalW > availW ? availW / naturalW : 1;
 
-  const displayH = naturalH * scale;
-  const displayW = naturalW * scale;
-  this.screenEl.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
-  // The layout box must match the DISPLAY size: scale() does not shrink layout, and a
-  // taller box was what pushed the control bar off-screen in fullscreen.
-  box.style.height = displayH + 'px';
-  const paneW = box.clientWidth || availW;
-  this.screenEl.style.marginLeft = paneW > displayW ? (paneW - displayW) / 2 + 'px' : '';
+    // fit:'both' honors a definite mount height only. Fullscreen hosts are definite by
+    // construction; a content-sized parent (scsh's live dashboard pane, etc.) must not
+    // drive vertical scale — measure→scale→write→ResizeObserver would ratchet forever.
+    if (this.fit === 'both') {
+      let availH = 0;
+      let definite = false;
+      if (rootFs) {
+        availH = this.root.clientHeight - barH;
+        definite = true;
+      } else if (wrapFs && this.fsEl) {
+        availH = this.fsEl.clientHeight - barH;
+        definite = true;
+      } else if (this.root.parentNode) {
+        const mount = this.root.parentNode;
+        definite = this.mountHeightIsDefinite(mount, box);
+        if (definite) availH = mount.clientHeight - barH;
+      }
+      if (definite && availH > 40 && naturalH * scale > availH) {
+        scale = Math.min(scale, availH / naturalH);
+      }
+    }
+
+    const displayH = naturalH * scale;
+    const displayW = naturalW * scale;
+    const transform = scale < 1 ? 'scale(' + scale + ')' : '';
+    const height = displayH + 'px';
+    const paneW = box.clientWidth || availW;
+    const margin = paneW > displayW ? (paneW - displayW) / 2 + 'px' : '';
+    // Idempotent: skip style writes that would only re-arm ResizeObserver.
+    if (this._layoutScale === scale && this.screenEl.style.transform === transform &&
+        box.style.height === height && this.screenEl.style.marginLeft === margin) {
+      return;
+    }
+    this._layoutScale = scale;
+    this.screenEl.style.transform = transform;
+    // The layout box must match the DISPLAY size: scale() does not shrink layout, and a
+    // taller box was what pushed the control bar off-screen in fullscreen.
+    box.style.height = height;
+    this.screenEl.style.marginLeft = margin;
+  } finally {
+    this._layouting = false;
+  }
 };
 
 Player.prototype.toggleFullscreen = function () {
