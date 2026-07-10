@@ -2,7 +2,15 @@
 
 beecast is a four-crate workspace, and the crates depend on each other, so they must be published **in dependency order** and their versions kept in lockstep. This page is the maintainer playbook.
 
-## Quick reference
+## Releases are automated
+
+Merging a PR whose last commit bumps the workspace version **is** the release. On every push to `main`, [`.github/workflows/cargo-crates-publish.yml`](.github/workflows/cargo-crates-publish.yml) reads the version, asks the crates.io index which of the four crates do not serve it yet, publishes exactly those — in dependency order — and then tags the commit `vX.Y.Z` and creates the GitHub release. A merge without a version bump publishes nothing; a run that failed halfway is safe to re-run, it just finishes the remainder.
+
+Authentication is crates.io **Trusted Publishing** (OIDC) — no long-lived registry token is stored anywhere. One-time setup, per crate, by a crate owner: on crates.io, *Settings → Trusted Publishing → Add* a GitHub publisher with repository `dkorolev/beecast`, workflow filename `cargo-crates-publish.yml`, environment left blank. All four crates (`beecast-dto`, `beecast-player`, `beecast-page`, `beecast`) need the entry. (A brand-new fifth crate would need one manual first publish before Trusted Publishing can be configured for it.)
+
+So a normal release is: land the PR ending in the bump commit, watch the `publish` run go green, done. Everything below is the manual fallback — the same sequence the workflow performs — for when the automation is unavailable or a release must be driven by hand.
+
+## Quick reference (manual fallback)
 
 Publish the four crates **in this order** (each must be on crates.io before anything that depends on it can build):
 
@@ -76,10 +84,10 @@ $ cargo package -p beecast --list
 
    The last command's verification build pulls everything from the registry — exactly what a user's `cargo install beecast` will do — so a green publish confirms the install path too.
 
-5. **Tag and push.**
+5. **Tag the release.** The workflow does this via a GitHub release; by hand it is:
 
    ```console
-   $ git tag vX.Y.Z && git push --tags
+   $ gh release create vX.Y.Z --title vX.Y.Z --generate-notes
    ```
 
 6. **Verify the published install path.**
