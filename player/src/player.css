@@ -23,7 +23,45 @@
   width: 100%; height: 100%; border-radius: 0;
   display: flex; flex-direction: column; justify-content: center;
 }
-.sp-screen-box { overflow: hidden; }
+/* Some embedding pages reset [hidden]; the player's own chrome must still honor it. */
+.beecast-player [hidden] { display: none !important; }
+/* Positioning context for the center play overlay and the chapters panel. */
+.sp-screen-box { overflow: hidden; position: relative; }
+/* The big center play button: shown only while the recording sits at its very start,
+   dimming the screen behind it. Block characters — this is a terminal player. */
+.sp-overlay {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.sp-bigplay {
+  margin: 0;
+  font: 15px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #fff; opacity: 0.85;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.sp-overlay:hover .sp-bigplay { opacity: 1; transform: scale(1.08); }
+/* The chapters panel: a fixed, scrollable frame over the screen's right edge. */
+.sp-chapters {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 4;
+  width: min(320px, 60%);
+  overflow-y: auto;
+  background: rgba(9, 11, 15, 0.92);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  font: 12px/1.45 ui-sans-serif, system-ui, sans-serif;
+  padding: 4px 0;
+}
+.sp-chap {
+  display: block; width: 100%; text-align: left;
+  font: inherit; color: var(--sp-fg);
+  background: transparent; border: none; cursor: pointer;
+  padding: 5px 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sp-chap:hover { background: rgba(106, 157, 237, 0.18); color: #fff; }
+.sp-chap-t { color: var(--sp-c4); margin-right: 8px; font-variant-numeric: tabular-nums; }
 .sp-screen {
   margin: 0;
   padding: 4px 6px;
@@ -68,6 +106,22 @@
   padding: 2px 6px;
 }
 .sp-bar button:hover { color: #fff; }
+/* The bar's play/pause is the primary control — a size up from its neighbors. */
+.sp-play { font-size: 16px; padding: 1px 7px; }
+/* The speed menu grows UP from its bar button. */
+.sp-speedwrap { position: relative; display: inline-flex; }
+.sp-speedmenu {
+  position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 5;
+  display: flex; flex-direction: column;
+  min-width: 3.6em; padding: 3px;
+  background: #161a20;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.sp-speedopt { text-align: center; border-radius: 3px; }
+.sp-speedopt.sp-on { color: var(--sp-c12); font-weight: 700; }
+.sp-speedopt:hover { background: rgba(106, 157, 237, 0.18); }
 .sp-time, .sp-dur { color: var(--sp-fg); opacity: 0.8; min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
 .sp-seek {
   position: relative;
