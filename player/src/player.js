@@ -410,7 +410,9 @@ Player.prototype.buildDom = function (mount, cfg) {
 
 Player.prototype.syncOverlay = function (state) {
   if (!this.overlayEl) return;
-  const show = state.status !== 'playing' && state.currentTime <= 1e-9 && state.duration > 0;
+  // Show whenever playback is not running (start, paused mid-cast, ended) so the
+  // big glyph is the obvious "press play" affordance — not only at t = 0.
+  const show = state.status !== 'playing' && state.duration > 0;
   this.overlayEl.hidden = !show;
 };
 
@@ -506,8 +508,8 @@ Player.prototype.renderChapters = function (state) {
           } catch (_) {}
         }
         if (cancelled) return;
+        // Seek only — chapter picks must not start playback (same as [ ] / ←→).
         self.seek(marker.time, 'marker');
-        self.play('marker');
         self.toggleChapters(false);
       };
     })(m));

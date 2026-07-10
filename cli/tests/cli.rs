@@ -251,8 +251,9 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// UI without duplicate speed/chapter chrome, semantic theme tokens, richer markers), then
 /// `fit: 'both'` learned to skip vertical scale on content-sized mounts (the ResizeObserver
 /// shrink ratchet that collapsed scsh's live dashboard), then the 0.9.0 footer stamp of that
-/// minor bump. When the template, the player, or the workspace version changes
-/// *intentionally*, re-pin using the lengths and fingerprints this assertion prints.
+/// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps. When
+/// the template, the player, or the workspace version changes *intentionally*, re-pin using
+/// the lengths and fingerprints this assertion prints.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -263,7 +264,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (94761, 0xf16290a99bdd679c, 94551, 0x2ff8dd7fa251218f), "the generated page's bytes moved");
+  assert_eq!(got, (94953, 0x4140096d18ff63d2, 94743, 0x9cea1f1e0addd7f1), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

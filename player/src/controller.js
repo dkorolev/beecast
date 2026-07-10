@@ -452,14 +452,11 @@ Controller.prototype.jumpMarker = function (dir, origin) {
     }
     if (target == null) {
       this.seek(0, { origin: origin || 'marker' });
-      this.play(origin || 'marker');
       return;
     }
   }
-  if (target != null) {
-    this.seek(target.time, { origin: origin || 'marker' });
-    this.play(origin || 'marker');
-  }
+  // Seek only — leave playing/paused alone. [ ] / chapter jumps must not autoplay.
+  if (target != null) this.seek(target.time, { origin: origin || 'marker' });
 };
 
 // Live-follow append (v2/v3). Same positional tail -f policy as before.

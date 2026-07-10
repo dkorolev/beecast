@@ -42,6 +42,22 @@ mod tests {
     }
   }
 
+  /// The center play overlay must appear whenever playback is not running, and marker
+  /// jumps must seek without calling play (←→ / [ ] / chapter picks stay paused).
+  #[test]
+  fn overlay_and_marker_jumps_do_not_autoplay() {
+    assert!(
+      PLAYER_JS.contains("state.status !== 'playing' && state.duration > 0"),
+      "overlay must show whenever not playing, not only at t = 0"
+    );
+    assert!(!PLAYER_JS.contains("currentTime <= 1e-9 && state.duration"), "the t≈0-only overlay gate must stay gone");
+    // jumpMarker used to end with play(origin); chapter rows did too.
+    assert!(
+      !PLAYER_JS.contains("this.play(origin || 'marker')") && !PLAYER_JS.contains("self.play('marker')"),
+      "marker/chapter navigation must not force play"
+    );
+  }
+
   /// `fit: 'both'` must never vertically scale against a content-sized mount: that path
   /// was a ResizeObserver shrink ratchet (scsh's live dashboard). The definite-height
   /// probe and the absence of the old `availH - 4` trigger pin the fix in the bundle.
@@ -390,6 +406,32 @@ c4.setMarkers([[0.5, 'half']]);
 assert.ok(types.includes('markerchange'), 'markerchange delivered');
 assert.strictEqual(c4.getState().markers.filter(m => m.source === 'integration').length, 1);
 c4.dispose();
+
+// ---- marker jumps seek without autoplay ----------------------------------------------
+const clockM = fakeClock();
+const cM = C.create({
+  data: '{"version":3,"term":{"cols":4,"rows":1}}\n[0,"o","a"]\n[1.0,"o","b"]\n[2.0,"o","c"]\n',
+  markers: [[0, 'start'], [1, 'mid'], [2, 'end']],
+  clock: clockM,
+});
+cM.play();
+clockM.flush(0);
+cM.pause();
+assert.strictEqual(cM.getState().status, 'paused');
+cM.seek(0);
+cM.jumpMarker(1, 'keyboard');
+assert.ok(Math.abs(cM.getCurrentTime() - 1) < 1e-9, ' ] seeks to next marker');
+assert.strictEqual(cM.getState().status, 'paused', '[ ] must not autoplay');
+cM.play();
+assert.strictEqual(cM.getState().status, 'playing');
+cM.jumpMarker(1, 'keyboard');
+assert.ok(Math.abs(cM.getCurrentTime() - 2) < 1e-9);
+assert.strictEqual(cM.getState().status, 'playing', 'jump while playing stays playing');
+cM.pause();
+cM.jumpMarker(-1, 'keyboard');
+assert.ok(Math.abs(cM.getCurrentTime() - 1) < 1e-9);
+assert.strictEqual(cM.getState().status, 'paused', '[ while paused stays paused');
+cM.dispose();
 
 // ---- fit:'both' scale rule: content-sized mounts must not ratchet -----------------
 // Mirrors layout()'s definite-height gate (vertical fit only when the mount's height

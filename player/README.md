@@ -216,7 +216,8 @@ controls: true | false | {
 - `prefers-reduced-motion` disables overlay motion.
 
 Keyboard when the player has focus: **space** play/pause · **←/→** seek ±5s ·
-**< / >** speed down/up · **[ / ]** previous/next marker · **c** chapters ·
+**< / >** speed down/up · **[ / ]** previous/next marker (seek only — does not
+autoplay) · **c** chapters ·
 **f** fullscreen · **Escape** closes menus.
 
 ## Time axis, layout, live-follow
@@ -233,9 +234,9 @@ vertical fit against a height the player controls is a `ResizeObserver` shrink r
 Whenever the terminal (scaled or not) ends up narrower than its pane, it is centered
 horizontally.
 
-**The big play button.** While the recording sits at its very start, a large center play
-glyph — block characters shaped as a triangle — dims the screen behind it; one click
-starts playback. It never appears mid-recording.
+**The big play button.** Whenever playback is not running — at the start, paused
+mid-recording, or ended — a large center play glyph (block characters shaped as a
+triangle) dims the screen behind it; one click starts (or resumes) playback.
 
 **Live-follow.** Feed each new chunk of v2/v3 NDJSON to `append(text)`. Chunk boundaries
 are free; partial trailing lines buffer until complete. A playhead at the live edge stays
