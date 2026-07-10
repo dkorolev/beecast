@@ -1,4 +1,4 @@
-# `beecast-player` — the first-party BeeCast player
+# `beecast-player` — the first-party beecast player
 
 A self-contained, dependency-free player for asciicast recordings (v1, v2, and v3): a
 DOM-free asciicast parser and VT100/xterm-subset terminal emulator, plus a thin DOM half
@@ -8,13 +8,13 @@ string constants to inline — `PLAYER_JS` (one `<script>`) and `PLAYER_CSS` (on
 
 This crate is the component's canonical home. The component was born in scsh's session
 browser and graduated here; scsh is now one downstream consumer among any others.
-[BeeCast](https://github.com/dkorolev/beecast) pages embed it through `beecast-page`; any
+[beecast](https://github.com/dkorolev/beecast) pages embed it through `beecast-page`; any
 other page or app that plays asciicast recordings consumes it from crates.io the same way.
 
 **Clean-room statement.** Written from scratch against public format and protocol
 documentation only — the asciicast v1/v2/v3 format descriptions and the standard ECMA-48 /
 xterm control-sequence references. No asciinema-player source code was consulted, copied,
-or translated. **MIT**, like the rest of BeeCast, so every embedding page carries a single
+or translated. **MIT**, like the rest of beecast, so every embedding page carries a single
 license.
 
 ## Layout
@@ -118,4 +118,4 @@ no third-party license marker anywhere in the bundle.
 ## License
 
 MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — the component, like the rest
-of BeeCast, is all first-party code.
+of beecast, is all first-party code.

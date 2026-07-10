@@ -1,6 +1,6 @@
 # Publishing to crates.io
 
-BeeCast is a four-crate workspace, and the crates depend on each other, so they must be published **in dependency order** and their versions kept in lockstep. This page is the maintainer playbook.
+beecast is a four-crate workspace, and the crates depend on each other, so they must be published **in dependency order** and their versions kept in lockstep. This page is the maintainer playbook.
 
 ## Quick reference
 

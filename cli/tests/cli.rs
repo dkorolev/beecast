@@ -256,7 +256,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (51222, 0xac3177971e228a03, 51012, 0xb05e6a20bc73323a), "the generated page's bytes moved");
+  assert_eq!(got, (51222, 0x63d5f8e75cb01483, 51012, 0x1c578a9d9e65b1ba), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

@@ -1,6 +1,6 @@
 # `beecast-dto`
 
-The cast-metadata DTO for [BeeCast](https://github.com/dkorolev/beecast): the strongly-typed `{ title, summary, chapters }` sidecar that annotates an asciinema `.cast` recording with a title, a summary, and timekeyed chapters.
+The cast-metadata DTO for [beecast](https://github.com/dkorolev/beecast): the strongly-typed `{ title, summary, chapters }` sidecar that annotates an asciinema `.cast` recording with a title, a summary, and timekeyed chapters.
 
 This crate is the **source of truth** for the metadata shape. The [`beecast`](https://crates.io/crates/beecast) CLI renders files in this shape, and the SeeCast annotator generates them; both agree because both go through this one definition.
 

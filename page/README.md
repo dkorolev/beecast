@@ -1,6 +1,6 @@
 # `beecast-page`
 
-The [BeeCast](https://github.com/dkorolev/beecast) page pipeline as a library: turn asciinema `.cast` text plus plain-strings metadata into one **fully self-contained `.html` player page** — the player, its styles, the recording, and the metadata all inlined, zero network requests, so a saved copy keeps working fully offline.
+The [beecast](https://github.com/dkorolev/beecast) page pipeline as a library: turn asciinema `.cast` text plus plain-strings metadata into one **fully self-contained `.html` player page** — the player, its styles, the recording, and the metadata all inlined, zero network requests, so a saved copy keeps working fully offline.
 
 This crate carries **nothing third-party** — deliberately. Its one dependency is the first-party, itself zero-dependency [`beecast-player`](https://crates.io/crates/beecast-player) crate (the player the pages embed), and its API takes plain strings and floats, never serde types, so a consumer with a tiny dependency tree (`scsh`, for one, hand-rolls its JSON on purpose) embeds the whole pipeline without pulling serde, anyhow, or anything else transitively. The few JSON needs are met by an internal std-only module whose behavior — and output bytes — match the serde-backed renderer this crate was extracted from; the `beecast` CLI test suite pins that equivalence differentially against serde itself.
 
@@ -23,4 +23,4 @@ Validating the metadata (strictly ascending chapters, the first at `t = 0`) stay
 
 ## License
 
-BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room player, embedded from the [`beecast-player`](https://crates.io/crates/beecast-player) crate, so no third-party code or license ships in the crate or in any generated page.
+beecast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is beecast's own clean-room player, embedded from the [`beecast-player`](https://crates.io/crates/beecast-player) crate, so no third-party code or license ships in the crate or in any generated page.

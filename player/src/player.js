@@ -1,7 +1,7 @@
 // beecast-player: the DOM half (see the crate README). Renders BeeCastVT snapshots,
 // drives the playback clock, and exposes the public BeeCastPlayer API.
 //
-// Clean-room implementation, MIT like the rest of BeeCast. The time axis is ALWAYS
+// Clean-room implementation, MIT like the rest of beecast. The time axis is ALWAYS
 // recording time: idle compression (idleTimeLimit) only changes pacing, never the clock
 // the API speaks. The pacing map itself lives in the DOM-free core (vt.js).
 'use strict';

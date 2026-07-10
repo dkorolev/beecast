@@ -1,7 +1,7 @@
 //! Renders the one deliverable: a single `.html` page with the player, its styles, the
 //! recording, and the metadata all inlined. The page performs **zero** network requests —
 //! no CDN, no sidecar fetches, not even a favicon hit (it is a `data:` URI) — so a saved
-//! copy behaves identically to the original, fully offline (the whole point of BeeCast).
+//! copy behaves identically to the original, fully offline (the whole point of beecast).
 //!
 //! The page's structure and behavior live in `page.html` (per ENG-PRINCIPLES §4 the glue
 //! is deliberately trivial vanilla JS); this module fills its `@@BEECAST_*@@` tokens.
@@ -9,7 +9,7 @@
 use crate::json;
 
 const TEMPLATE: &str = include_str!("page.html");
-// The first-party player (clean-room, MIT like the rest of BeeCast), from its
+// The first-party player (clean-room, MIT like the rest of beecast), from its
 // own `beecast-player` crate: the DOM-free VT core and the DOM half as one bundle.
 use beecast_player::{PLAYER_CSS, PLAYER_JS};
 

@@ -1,6 +1,6 @@
 # SeeCast
 
-**SeeCast** watches an [asciinema](https://asciinema.org) `.cast` recording so you don't have to: it generates the `{ title, summary, chapters }` metadata sidecar that [BeeCast](../README.md) — this repo's Rust renderer — turns into a player page: a one-line title, a short summary, and timekeyed chapters, YouTube-style. Annotation runs on `cursor-agent` with the **Composer Fast** model (`composer-2.5-fast`): fast and cheap, and chapter titling is squarely within its reach.
+**SeeCast** watches an [asciinema](https://asciinema.org) `.cast` recording so you don't have to: it generates the `{ title, summary, chapters }` metadata sidecar that [beecast](../README.md) — this repo's Rust renderer — turns into a player page: a one-line title, a short summary, and timekeyed chapters, YouTube-style. Annotation runs on `cursor-agent` with the **Composer Fast** model (`composer-2.5-fast`): fast and cheap, and chapter titling is squarely within its reach.
 
 ```
 ./seecast demo.cast        # → demo.meta.json, next to the recording
@@ -56,7 +56,7 @@ ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast     # from the repo root
 | Absent on purpose               | Where that job IS done                                 |
 | ------------------------------- | ------------------------------------------------------ |
 | Recording a terminal session    | `asciinema rec` (or any asciicast v2/v3 producer)      |
-| Rendering the player page       | [BeeCast](../README.md), this repo's Rust renderer     |
+| Rendering the player page       | [beecast](../README.md), this repo's Rust renderer     |
 | Hand-editing a sidecar          | Any editor — then `./seecast --validate` checks it     |
 | Hosting the annotation model    | `cursor-agent` (Cursor CLI) with its own credentials   |
 

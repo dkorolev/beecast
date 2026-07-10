@@ -4,7 +4,7 @@ In-browser `.cast` files player, with chapters and seeing capabilities.
 
 Also designed to be self-contained, so that when the file is saved, it's a single HTML, and it can be viewed totally offline.
 
-**BeeCast** turns an [asciinema](https://asciinema.org) `.cast` recording into a **single, fully self-contained `.html` file** that plays in any browser — online, offline, from a web server, or straight off a `file://` path. Zero network requests, zero external dependencies, zero console errors or warnings. If you `Save` the page from a browser and open the copy on a plane, it works exactly the same.
+**beecast** turns an [asciinema](https://asciinema.org) `.cast` recording into a **single, fully self-contained `.html` file** that plays in any browser — online, offline, from a web server, or straight off a `file://` path. Zero network requests, zero external dependencies, zero console errors or warnings. If you `Save` the page from a browser and open the copy on a plane, it works exactly the same.
 
 ## What's in this repo
 
@@ -39,4 +39,4 @@ The crates publish to crates.io in dependency order — `beecast-dto` and `beeca
 
 ## License
 
-BeeCast is MIT (see [`LICENSE`](LICENSE)) — all of it. The pages embed BeeCast's own clean-room player, `beecast-player` (written from scratch against the asciicast format and ECMA-48/xterm documentation; see [`player/README.md`](player/README.md)), so no third-party code — and no second license — ships in the crates, the binary, or any generated page.
+beecast is MIT (see [`LICENSE`](LICENSE)) — all of it. The pages embed beecast's own clean-room player, `beecast-player` (written from scratch against the asciicast format and ECMA-48/xterm documentation; see [`player/README.md`](player/README.md)), so no third-party code — and no second license — ships in the crates, the binary, or any generated page.

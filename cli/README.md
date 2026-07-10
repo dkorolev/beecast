@@ -1,6 +1,6 @@
 # `beecast`
 
-**BeeCast** turns an [asciinema](https://asciinema.org) `.cast` recording into a **single, fully self-contained `.html` file** that plays in any browser — online, offline, from a web server, or straight off a `file://` path. Zero network requests, zero external dependencies, zero console errors or warnings. If you `Save` the page from a browser and open the copy on a plane, it works exactly the same.
+**beecast** turns an [asciinema](https://asciinema.org) `.cast` recording into a **single, fully self-contained `.html` file** that plays in any browser — online, offline, from a web server, or straight off a `file://` path. Zero network requests, zero external dependencies, zero console errors or warnings. If you `Save` the page from a browser and open the copy on a plane, it works exactly the same.
 
 ```
 beecast build demo.cast            # → demo.html, next to the cast
@@ -9,7 +9,7 @@ open demo.html                     # play it — fully offline
 
 ## What the page gives you
 
-- **Playback** of asciicast v1, v2, and v3 recordings, via BeeCast's own inlined clean-room player (MIT, like everything else here).
+- **Playback** of asciicast v1, v2, and v3 recordings, via beecast's own inlined clean-room player (MIT, like everything else here).
 - **Title and summary** — rendered from the optional metadata sidecar (see below).
 - **Chapter navigation** — one button per chapter, plus markers on the player timeline.
 - **Speed up / slow down** — 0.5× · 1× · 1.5× · 2× · 3×, switchable mid-playback.
@@ -77,4 +77,4 @@ cargo install --path cli                                   # from a checkout (wo
 
 ## License
 
-BeeCast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is BeeCast's own clean-room [`beecast-player`](../player) (see [`../player/README.md`](../player/README.md)), so no third-party code or license ships in the binary or in any generated page.
+beecast is MIT (text in [`LICENSE`](LICENSE), shipped with the crate) — all of it. The inlined player is beecast's own clean-room [`beecast-player`](../player) (see [`../player/README.md`](../player/README.md)), so no third-party code or license ships in the binary or in any generated page.

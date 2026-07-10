@@ -1,4 +1,4 @@
-//! The first-party BeeCast player as a crate: clean-room, dependency-free
+//! The first-party beecast player as a crate: clean-room, dependency-free
 //! asciicast (v1/v2/v3) player and VT100/xterm-subset terminal emulator. Consumers inline
 //! the two constants whole — a `<script>` element and a `<style>` element — and get the
 //! full player: parsing, emulation, playback with idle compression, chapter markers,

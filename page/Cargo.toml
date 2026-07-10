@@ -1,6 +1,6 @@
 [package]
 name = "beecast-page"
-description = "The BeeCast page pipeline as a library — turn an asciinema .cast recording plus plain-strings metadata into a single self-contained offline .html player page. Nothing third-party: its only dependency is the zero-dependency beecast-player."
+description = "The beecast page pipeline as a library — turn an asciinema .cast recording plus plain-strings metadata into a single self-contained offline .html player page. Nothing third-party: its only dependency is the zero-dependency beecast-player."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

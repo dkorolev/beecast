@@ -1,6 +1,6 @@
 [package]
 name = "beecast-player"
-description = "The first-party BeeCast player — a clean-room, dependency-free asciicast (v1/v2/v3) player and VT emulator, exposed as inlinable JS/CSS string constants, with live-follow append for recordings that are still growing."
+description = "The first-party beecast player — a clean-room, dependency-free asciicast (v1/v2/v3) player and VT emulator, exposed as inlinable JS/CSS string constants, with live-follow append for recordings that are still growing."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

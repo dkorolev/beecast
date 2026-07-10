@@ -9,7 +9,7 @@ Two gates, same checks (`cargo fmt --check`, `cargo clippy --workspace --all-tar
 1. **Pre-push** — enable once per clone: `git config core.hooksPath .githooks`. Committing locally stays free and fast; the gate runs when code leaves the machine.
 2. **CI** — `.github/workflows/ci.yml`, required before merge.
 
-History is linear (rebase, no merge commits). Commit messages are short, complete sentences: capital first letter, trailing period, `backticks` for identifiers. No `Co-Authored-By` trailers.
+History is linear (rebase, no merge commits). Commit messages are short, complete sentences: capital first letter, trailing period, `backticks` for identifiers. No `Co-Authored-By` trailers. The project name is written `beecast` — all lowercase, even at the start of a sentence; identifiers keep their own casing (`BeeCastPlayer`, `BeeCastVT`).
 
 When updating the first-party player under `player/src/` (this crate is the canonical home; downstream embedders — scsh's session browser among them — consume `beecast-player` from crates.io, so a player change reaches them as a version bump), the `player_bundle_is_inline_safe_and_first_party` test guards the properties every self-contained embedding depends on, and the byte fingerprints in `cli/tests/cli.rs` need re-pinning (the failing assertion prints the new values).
 
