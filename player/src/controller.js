@@ -96,6 +96,8 @@ function Controller(opts) {
   const cast = VT.parseCast(src);
   this.cast = cast;
   this.term = new VT.Term(cast.cols, cast.rows);
+  this._terminalSnapshot = null;
+  this._terminalSnapshotDirty = true;
   this.pacing = VT.buildPacing(cast.events, cast.duration, opts.idleTimeLimit);
   this.idleTimeLimit = opts.idleTimeLimit == null ? null : opts.idleTimeLimit;
 
@@ -183,6 +185,7 @@ Controller.prototype.applyEventsUpTo = function (t) {
   if (this.eventIdx > 0 && evs[this.eventIdx - 1].t > t) {
     this.term = new VT.Term(this.cast.cols, this.cast.rows);
     this.eventIdx = 0;
+    this._terminalSnapshotDirty = true;
   }
   let applied = false;
   let resized = false;
@@ -195,10 +198,12 @@ Controller.prototype.applyEventsUpTo = function (t) {
     }
     applied = true;
   }
+  if (applied || resized) this._terminalSnapshotDirty = true;
   return { applied: applied, resized: resized };
 };
 
 Controller.prototype.snapshotTerminal = function () {
+  if (!this._terminalSnapshotDirty && this._terminalSnapshot) return this._terminalSnapshot;
   const snap = this.term.snapshot();
   // Defensive copy so subscribers cannot mutate internal term state.
   const rows = [];
@@ -210,7 +215,7 @@ Controller.prototype.snapshotTerminal = function () {
     }
     rows.push(line);
   }
-  return {
+  this._terminalSnapshot = {
     rows: rows,
     cursor: {
       x: snap.cursor.x,
@@ -218,6 +223,8 @@ Controller.prototype.snapshotTerminal = function () {
       visible: snap.cursor.visible,
     },
   };
+  this._terminalSnapshotDirty = false;
+  return this._terminalSnapshot;
 };
 
 Controller.prototype.getCurrentTime = function () {
@@ -497,6 +504,8 @@ Controller.prototype.load = function (opts) {
     : (opts.source && opts.source.type === 'text' ? String(opts.source.data || '') : '');
   this.cast = VT.parseCast(data);
   this.term = new VT.Term(this.cast.cols, this.cast.rows);
+  this._terminalSnapshot = null;
+  this._terminalSnapshotDirty = true;
   this.pacing = VT.buildPacing(this.cast.events, this.cast.duration, this.idleTimeLimit);
   this.castMarkers = [];
   if (opts.markers) this.externalMarkers = normalizeMarkers(opts.markers, 'sidecar');

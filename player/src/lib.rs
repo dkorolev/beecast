@@ -227,6 +227,21 @@ assert.ok(state.markers.every(m => m.id && typeof m.time === 'number' && m.label
 assert.ok(state.terminal.rows.length === 2);
 assert.strictEqual(state.dimensions.columns, 8);
 
+// Terminal snapshots are cached until output or resize dirties the terminal.
+let snapshotCalls = 0;
+const originalSnapshot = ctrl.term.snapshot;
+ctrl.term.snapshot = function () { snapshotCalls++; return originalSnapshot.call(this); };
+const cachedTerminal = ctrl.getState().terminal;
+assert.strictEqual(ctrl.getState().terminal, cachedTerminal);
+assert.strictEqual(snapshotCalls, 0, 'initial snapshot remains cached');
+ctrl.seek(1.5);
+const changedTerminal = ctrl.getState().terminal;
+assert.notStrictEqual(changedTerminal, cachedTerminal);
+assert.strictEqual(snapshotCalls, 1, 'events invalidate the cached snapshot once');
+assert.strictEqual(ctrl.getState().terminal, changedTerminal);
+assert.strictEqual(snapshotCalls, 1, 'unchanged state does not copy the terminal again');
+ctrl.seek(0);
+
 // subscribe delivers immediately and is removable
 const seen = [];
 const unsub = ctrl.subscribe((s, meta) => { seen.push(meta.type); });
