@@ -225,6 +225,10 @@ Keyboard when the player has focus: **space** play/pause · **←/→** seek ±5
 autoplay) · **c** chapters ·
 **f** fullscreen · **Escape** closes menus.
 
+A `[` / `]` jump names the chapter it landed on in a brief bottom-center toast
+(`role="status"`, so screen readers announce it too) that fades out on its own;
+`prefers-reduced-motion` drops the fade.
+
 At widths up to 430 px the toolbar compacts and hides the two visually duplicated clock labels; the seek slider retains the complete `current of duration` value for assistive technology, and play, seek, chapters, speed, and fullscreen all remain reachable.
 
 ## Time axis, layout, live-follow

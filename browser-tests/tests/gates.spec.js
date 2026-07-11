@@ -86,6 +86,17 @@ test.describe('human-facing behavior', () => {
     expect(Number(await page.locator('.sp-seek').getAttribute('aria-valuenow'))).toBe(0);
   });
 
+  test('keyboard chapter jumps show a disappearing toast naming the chapter', async ({ page }) => {
+    await page.goto(fileUrl());
+    await page.locator('.beecast-player').focus();
+    await page.keyboard.press(']');
+    const toast = page.locator('.sp-toast');
+    await expect(toast).toHaveClass(/sp-toast-show/);
+    expect(await toast.textContent()).toMatch(/^\d+\/\d+ · ./);
+    // It fades out on its own.
+    await expect(toast).not.toHaveClass(/sp-toast-show/, { timeout: 5000 });
+  });
+
   test('menus move focus with arrows and return it with Escape', async ({ page }) => {
     await page.goto(fileUrl());
     const speed = page.locator('.sp-speed');
