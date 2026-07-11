@@ -55,9 +55,9 @@ test.describe('human-facing behavior', () => {
     const geometry = await page.evaluate(() => {
       const screen = document.querySelector('.sp-screen');
       screen.style.transform = 'scale(0.773)'; // exercise fractional pixel boundaries
-      screen.innerHTML = '<span style="background:#777">AAAAAAAAAA</span>\n' +
-        '<span style="background:#777">BBBBBBBBBB</span>\n' +
-        '<span style="background:#777">CCCCCCCCCC</span>';
+      screen.innerHTML = '<span class="sp-bg" style="--sp-run-bg:#777;background:#777">AAAAAAAAAA</span>\n' +
+        '<span class="sp-bg" style="--sp-run-bg:#777;background:#777">BBBBBBBBBB</span>\n' +
+        '<span class="sp-bg" style="--sp-run-bg:#777;background:#777">CCCCCCCCCC</span>';
       const rows = Array.from(screen.querySelectorAll('span')).map((span) => {
         const rect = span.getBoundingClientRect();
         return { top: rect.top, bottom: rect.bottom };
@@ -120,7 +120,7 @@ test.describe('human-facing behavior', () => {
   });
 
   test('chapter navigation creates and restores a focused history entry', async ({ page }) => {
-    // Narrow enough that chapters stay an opt-in overlay (not auto-docked).
+    // Chapters are always an opt-in overlay.
     await page.setViewportSize({ width: 520, height: 700 });
     await page.goto(fileUrl());
     await page.locator('.sp-chapbtn').click();
@@ -137,7 +137,7 @@ test.describe('human-facing behavior', () => {
     await page.keyboard.press(']');
     const toast = page.locator('.sp-toast');
     await expect(toast).toHaveClass(/sp-toast-show/);
-    await expect(toast.locator('.sp-toast-state-label')).toHaveText('CHAPTER');
+    await expect(toast.locator('.sp-toast-state')).toBeHidden();
     expect(await toast.locator('.sp-toast-id').textContent()).toMatch(/./);
     expect(await toast.locator('.sp-toast-meta').textContent()).toMatch(/^\d+\/\d+ · ./);
     // It fades out on its own.
@@ -170,19 +170,61 @@ test.describe('human-facing behavior', () => {
     expect(await page.locator('.sp-toast-meta').textContent()).toMatch(/^2\/\d+ · ./);
   });
 
-  test('tall mounts dock chapters beside the terminal', async ({ page }) => {
+  test('tall mounts keep chapters in an overlay', async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 720 });
     await page.goto(fileUrl());
     const player = page.locator('.beecast-player');
-    await expect(player).toHaveClass(/sp-chapters-dock/);
+    await expect(player).not.toHaveClass(/sp-chapters-dock/);
     const panel = page.locator('.sp-chapters');
-    await expect(panel).toBeVisible();
-    await panel.locator('.sp-chap').nth(1).click();
-    // Docked picks keep the list open.
-    await expect(panel).toBeVisible();
     await player.focus();
     await page.keyboard.press('c');
+    await expect(panel).toBeVisible();
+    await panel.locator('.sp-chap').nth(1).click();
+    // Picks close the overlay and never resize the terminal.
     await expect(panel).toBeHidden();
+    await player.focus();
+    await page.keyboard.press('c');
+    await expect(panel).toBeVisible();
+  });
+
+  test('leaving fullscreen recenters the same player in the page', async ({ page }) => {
+    await page.goto(fileUrl());
+    await page.evaluate(() => {
+      document.body.style.paddingTop = '900px';
+      document.body.style.paddingBottom = '900px';
+    });
+    await page.locator('.sp-fs').evaluate((button) => button.click());
+    await page.waitForFunction(() => document.fullscreenElement !== null);
+    await page.evaluate(() => document.exitFullscreen());
+    await page.waitForFunction(() => document.fullscreenElement === null);
+    await page.waitForTimeout(500);
+    const offset = await page.locator('.beecast-player').evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return Math.abs((rect.top + rect.height / 2) - window.innerHeight / 2);
+    });
+    expect(offset).toBeLessThan(24);
+  });
+
+  test('chapter overlay never changes fullscreen terminal scale', async ({ page }) => {
+    await page.goto(fileUrl());
+    await page.locator('.sp-fs').evaluate((button) => button.click());
+    await page.waitForFunction(() => document.fullscreenElement !== null);
+    const player = page.locator('.beecast-player');
+    const before = await page.locator('.sp-screen').evaluate((screen) => ({
+      transform: screen.style.transform,
+      rect: screen.getBoundingClientRect().toJSON(),
+    }));
+    await player.focus();
+    await page.keyboard.press('c');
+    await expect(page.locator('.sp-chapters')).toBeVisible();
+    const after = await page.locator('.sp-screen').evaluate((screen) => ({
+      transform: screen.style.transform,
+      rect: screen.getBoundingClientRect().toJSON(),
+    }));
+    expect(after.transform).toBe(before.transform);
+    expect(Math.abs(after.rect.width - before.rect.width)).toBeLessThan(0.01);
+    expect(Math.abs(after.rect.height - before.rect.height)).toBeLessThan(0.01);
+    await page.evaluate(() => document.exitFullscreen());
   });
 
   test('definite-height mounts pin the bar at the bottom and center the terminal', async ({ page }) => {

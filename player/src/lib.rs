@@ -96,10 +96,7 @@ mod tests {
       PLAYER_JS.contains("sp-stage") && PLAYER_CSS.contains(".sp-stage"),
       "fullscreen centering lives in a flex stage above the control bar"
     );
-    assert!(
-      PLAYER_JS.contains("sp-chapters-dock") && PLAYER_JS.contains("canDockChapters"),
-      "tall mounts dock chapters beside the terminal"
-    );
+    assert!(!PLAYER_JS.contains("canDockChapters"), "chapter overlays must never consume terminal layout space");
   }
 
   /// Phase 0: the public surface must not shrink without an intentional change.

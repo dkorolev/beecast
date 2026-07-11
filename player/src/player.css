@@ -157,11 +157,13 @@
 }
 
 .sp-chapters {
-  position: absolute; top: 0; right: 0; bottom: 0; z-index: 4;
-  width: min(320px, 60%);
+  position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 4;
+  width: clamp(240px, 24%, 520px);
+  max-width: calc(100% - 24px);
   overflow-y: auto;
-  background: rgba(9, 11, 15, 0.92);
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(13, 17, 23, 0.94);
+  border: 1px solid #2a3140;
+  border-radius: 8px;
   font: 12px/1.45 ui-sans-serif, system-ui, sans-serif;
   padding: 8px;
   display: flex;
@@ -170,79 +172,51 @@
   box-sizing: border-box;
   pointer-events: auto;
 }
-/* Tall + wide mounts (and fullscreen): dock chapters beside the terminal instead of
-   overlaying it. The list stretches full stage height; the terminal stays centered. */
-.beecast-player.sp-chapters-dock .sp-stage {
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-}
-.beecast-player.sp-chapters-dock .sp-screen-box {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
-}
-.beecast-player.sp-chapters-dock .sp-chapters {
-  position: static;
-  flex: 0 0 min(280px, 32%);
-  width: min(280px, 32%);
-  max-width: 320px;
-  align-self: stretch;
-  z-index: 1;
-}
-/* Chapter rows mirror scsh job-graph cards: left accent, state / title / meta. */
+/* Chapters are quiet one-line choices in an overlay; opening the list never resizes
+   or recolors the recording underneath it. */
 .sp-chap {
-  display: flex; flex-direction: column; justify-content: center;
-  gap: 0.15rem; width: 100%; text-align: left;
+  display: flex; flex-direction: row; align-items: baseline;
+  gap: 0.65rem; width: 100%; text-align: left;
   font: inherit; color: var(--sp-fg);
-  background: #0d1117; border: 1px solid #2a3140;
-  border-left: 3px solid #2a3140; border-radius: 6px;
-  cursor: pointer; padding: 0.45rem 0.65rem;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  cursor: pointer; padding: 0.4rem 0.6rem;
   box-sizing: border-box;
   pointer-events: auto;
 }
-.sp-chap:hover { border-color: #3a4558; background: #161b22; }
+.sp-chap:hover { border-color: #3a4558; background: rgba(255, 255, 255, 0.04); }
 .sp-chap:focus-visible {
   outline: 2px solid var(--beecast-color-accent);
   outline-offset: 1px;
 }
 .sp-chap-state {
-  display: flex; align-items: center; gap: 0.35rem;
-  font-size: 0.72rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--beecast-color-text-muted);
+  display: none;
 }
 .sp-chap-id {
-  font-weight: 600; font-size: 0.95rem;
+  flex: 1 1 auto; min-width: 0; font-weight: 400; font-size: 0.9rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sp-chap-meta {
-  font-size: 0.75rem; color: var(--beecast-color-text-muted);
+  flex: 0 0 auto; font-size: 0.8rem; color: var(--beecast-color-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .sp-chap-on {
-  border-left-color: #3fb950;
-  background: #161b22;
+  border-color: #3a4558;
+  background: rgba(255, 255, 255, 0.06);
 }
-.sp-chap-on .sp-chap-state,
-.sp-chap-on .sp-chap-id { color: #3fb950; }
 .sp-chap-ann .sp-chap-id { font-style: italic; opacity: 0.95; }
 
-/* Bottom-center disappearing toast: scsh job-graph card silhouette (left accent,
-   state / title / meta), above the control bar. */
+/* Wide, neutral, one-line chapter feedback overlays the bottom of the terminal. */
 .sp-toast {
-  position: absolute; left: 50%; bottom: 52px; z-index: 6;
+  position: absolute; left: 50%; bottom: 12px; z-index: 6;
   transform: translateX(-50%) translateY(0.6rem);
-  display: flex; flex-direction: column; justify-content: center;
-  gap: 0.15rem;
-  max-width: min(22rem, calc(100% - 24px));
-  min-width: min(12rem, calc(100% - 24px));
-  padding: 0.45rem 0.75rem;
-  border-radius: 6px;
-  background: #0d1117;
+  display: flex; align-items: baseline; justify-content: center;
+  gap: 0.65rem;
+  width: min(44rem, calc(100% - 24px));
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.94);
   border: 1px solid #2a3140;
-  border-left: 3px solid #3fb950;
   color: var(--sp-fg);
   font: 0.85rem/1.25 ui-sans-serif, system-ui, sans-serif;
   text-align: left;
@@ -252,18 +226,13 @@
   box-sizing: border-box;
 }
 .sp-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.sp-toast-state {
-  display: flex; align-items: center; gap: 0.35rem;
-  font-size: 0.72rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  color: #3fb950;
-}
+.sp-toast-state { display: none; }
 .sp-toast-id {
-  font-weight: 600; font-size: 0.95rem; color: #3fb950;
+  flex: 1 1 auto; min-width: 0; font-weight: 400; font-size: 0.95rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sp-toast-meta {
-  font-size: 0.75rem; color: var(--beecast-color-text-muted);
+  flex: 0 0 auto; font-size: 0.8rem; color: var(--beecast-color-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -279,6 +248,10 @@
 /* Styled runs fill one complete terminal row. Top alignment removes the baseline
    leading that otherwise becomes a dark horizontal seam at fractional fit scales. */
 .sp-screen span { display: inline-block; vertical-align: top; }
+/* Fractional player scaling can place adjacent row edges on opposite sides of a
+   device pixel. Extend only background-painted runs downward by a subpixel so a
+   logically solid terminal background remains visually solid. */
+.sp-screen .sp-bg { box-shadow: 0 0.75px 0 var(--sp-run-bg); }
 .sp-probe { visibility: hidden; position: absolute; }
 .sp-b { font-weight: 700; }
 .sp-d { opacity: 0.6; }
