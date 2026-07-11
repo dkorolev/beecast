@@ -10,7 +10,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "beecast"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "anyhow",
  "beecast-dto",
@@ -21,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "beecast-dto"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "schemars",
  "serde",
@@ -31,14 +31,14 @@ dependencies = [
 
 [[package]]
 name = "beecast-page"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "beecast-player",
 ]
 
 [[package]]
 name = "beecast-player"
-version = "0.10.2"
+version = "0.10.3"
 
 [[package]]
 name = "bitflags"
