@@ -163,7 +163,11 @@
   background: rgba(9, 11, 15, 0.92);
   border-left: 1px solid rgba(255, 255, 255, 0.14);
   font: 12px/1.45 ui-sans-serif, system-ui, sans-serif;
-  padding: 4px 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
   pointer-events: auto;
 }
 /* Tall + wide mounts (and fullscreen): dock chapters beside the terminal instead of
@@ -186,45 +190,83 @@
   align-self: stretch;
   z-index: 1;
 }
+/* Chapter rows mirror scsh job-graph cards: left accent, state / title / meta. */
 .sp-chap {
-  display: block; width: 100%; text-align: left;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 0.15rem; width: 100%; text-align: left;
   font: inherit; color: var(--sp-fg);
-  background: transparent; border: none; cursor: pointer;
-  padding: 5px 12px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: #0d1117; border: 1px solid #2a3140;
+  border-left: 3px solid #2a3140; border-radius: 6px;
+  cursor: pointer; padding: 0.45rem 0.65rem;
+  box-sizing: border-box;
   pointer-events: auto;
 }
-.sp-chap:hover { background: rgba(106, 157, 237, 0.18); color: #fff; }
+.sp-chap:hover { border-color: #3a4558; background: #161b22; }
 .sp-chap:focus-visible {
   outline: 2px solid var(--beecast-color-accent);
-  outline-offset: -2px;
+  outline-offset: 1px;
+}
+.sp-chap-state {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--beecast-color-text-muted);
+}
+.sp-chap-id {
+  font-weight: 600; font-size: 0.95rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sp-chap-meta {
+  font-size: 0.75rem; color: var(--beecast-color-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .sp-chap-on {
-  background: rgba(106, 157, 237, 0.22);
-  color: #fff;
-  box-shadow: inset 3px 0 0 var(--beecast-color-accent);
+  border-left-color: #3fb950;
+  background: #161b22;
 }
-.sp-chap-ann { font-style: italic; opacity: 0.95; }
-.sp-chap-t { color: var(--sp-c4); margin-right: 8px; font-variant-numeric: tabular-nums; }
+.sp-chap-on .sp-chap-state,
+.sp-chap-on .sp-chap-id { color: #3fb950; }
+.sp-chap-ann .sp-chap-id { font-style: italic; opacity: 0.95; }
 
-/* Bottom-center disappearing toast: names the chapter a jump landed on. Same silhouette as
-   scsh's session-browser toast — padded pill, soft shadow, above the control bar. */
+/* Bottom-center disappearing toast: scsh job-graph card silhouette (left accent,
+   state / title / meta), above the control bar. */
 .sp-toast {
   position: absolute; left: 50%; bottom: 52px; z-index: 6;
   transform: translateX(-50%) translateY(0.6rem);
-  max-width: min(28rem, calc(100% - 24px));
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 0.7rem 1.15rem; border-radius: 8px;
-  background: #161b22;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 0.15rem;
+  max-width: min(22rem, calc(100% - 24px));
+  min-width: min(12rem, calc(100% - 24px));
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  background: #0d1117;
+  border: 1px solid #2a3140;
+  border-left: 3px solid #3fb950;
   color: var(--sp-fg);
-  font: 0.92rem/1.35 ui-sans-serif, system-ui, sans-serif;
-  text-align: center;
+  font: 0.85rem/1.25 ui-sans-serif, system-ui, sans-serif;
+  text-align: left;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
   opacity: 0; pointer-events: none;
   transition: opacity 0.22s ease, transform 0.22s ease;
+  box-sizing: border-box;
 }
 .sp-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.sp-toast-state {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: #3fb950;
+}
+.sp-toast-id {
+  font-weight: 600; font-size: 0.95rem; color: #3fb950;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sp-toast-meta {
+  font-size: 0.75rem; color: var(--beecast-color-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 .sp-screen {
   margin: 0;

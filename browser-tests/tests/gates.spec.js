@@ -94,7 +94,9 @@ test.describe('human-facing behavior', () => {
     await page.keyboard.press(']');
     const toast = page.locator('.sp-toast');
     await expect(toast).toHaveClass(/sp-toast-show/);
-    expect(await toast.textContent()).toMatch(/^\d+\/\d+ · ./);
+    await expect(toast.locator('.sp-toast-state-label')).toHaveText('CHAPTER');
+    expect(await toast.locator('.sp-toast-id').textContent()).toMatch(/./);
+    expect(await toast.locator('.sp-toast-meta').textContent()).toMatch(/^\d+\/\d+ · ./);
     // It fades out on its own.
     await expect(toast).not.toHaveClass(/sp-toast-show/, { timeout: 5000 });
   });
@@ -120,9 +122,9 @@ test.describe('human-facing behavior', () => {
     await player.focus();
     await page.keyboard.press('0');
     await expect(page.locator('.sp-toast')).toHaveClass(/sp-toast-show/);
-    expect(await page.locator('.sp-toast').textContent()).toMatch(/^1\/\d+ · ./);
+    expect(await page.locator('.sp-toast-meta').textContent()).toMatch(/^1\/\d+ · ./);
     await page.keyboard.press('ArrowDown');
-    expect(await page.locator('.sp-toast').textContent()).toMatch(/^2\/\d+ · ./);
+    expect(await page.locator('.sp-toast-meta').textContent()).toMatch(/^2\/\d+ · ./);
   });
 
   test('tall mounts dock chapters beside the terminal', async ({ page }) => {

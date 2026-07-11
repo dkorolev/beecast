@@ -251,7 +251,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// UI without duplicate speed/chapter chrome, semantic theme tokens, richer markers), then
 /// `fit: 'both'` learned to skip vertical scale on content-sized mounts (the ResizeObserver
 /// shrink ratchet that collapsed scsh's live dashboard), then the 0.9.0 footer stamp of that
-/// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, the 0.9.4 footer stamp, then catch-up playback started returning to Live at the appended edge, and the 0.9.5 footer stamp,   then the hardening pass (pointer-capture seeking, `role="region"`, the compact narrow toolbar), then `[` `]` chapter jumps gained a disappearing bottom toast naming the chapter,   then chapter UX polish (scsh-matching toast, stable clickable chapter rows, `c` toggle close, ↑/↓ and digit 0–9 jumps), then fullscreen stage centering and auto-docked chapters on tall mounts. When
+/// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, the 0.9.4 footer stamp, then catch-up playback started returning to Live at the appended edge, and the 0.9.5 footer stamp,   then the hardening pass (pointer-capture seeking, `role="region"`, the compact narrow toolbar), then `[` `]` chapter jumps gained a disappearing bottom toast naming the chapter,   then chapter UX polish (scsh-matching toast, stable clickable chapter rows, `c` toggle close, ↑/↓ and digit 0–9 jumps),   then fullscreen stage centering and auto-docked chapters on tall mounts, then chapter toast/rows adopted the scsh job-graph card silhouette. When
 /// the template or player changes *intentionally*, re-pin using the lengths and fingerprints
 /// this assertion prints. The footer's workspace version is normalized so a manifest-only
 /// release commit does not require an unrelated fingerprint change.
@@ -271,7 +271,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
     .replace(env!("CARGO_PKG_VERSION"), "<version>")
     .into_bytes();
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (110101, 0xfa9a39e5539d57a9, 109891, 0x3b2b0aaa1b52d870), "the generated page's bytes moved");
+  assert_eq!(got, (113341, 0xb9a3a76b683e0b34, 113131, 0x4a6c3956760794eb), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

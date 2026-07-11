@@ -540,18 +540,35 @@ Player.prototype.renderChapters = function (state) {
   for (let i = 0; i < markers.length; i++) {
     if (markers[i].time <= now + 1e-9) currentId = markers[i].id;
   }
-  for (const m of markers) {
+  for (let i = 0; i < markers.length; i++) {
+    const m = markers[i];
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'sp-chap' + (m.id === currentId ? ' sp-chap-on' : '') +
       (m.type === 'annotation' ? ' sp-chap-ann' : '');
     row.setAttribute('role', 'menuitem');
     row.dataset.markerId = String(m.id);
-    const t = document.createElement('span');
-    t.className = 'sp-chap-t';
-    t.textContent = fmtClock(m.time);
-    row.appendChild(t);
-    row.appendChild(document.createTextNode(m.label || ''));
+    const stateEl = document.createElement('span');
+    stateEl.className = 'sp-chap-state';
+    const ico = document.createElement('span');
+    ico.className = 'sp-chap-ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.textContent = m.id === currentId ? '\u2713' : '\u00B7';
+    const lab = document.createElement('span');
+    lab.className = 'sp-chap-state-label';
+    lab.textContent = m.id === currentId ? 'NOW' : ('CH ' + (i + 1));
+    stateEl.appendChild(ico);
+    stateEl.appendChild(document.createTextNode(' '));
+    stateEl.appendChild(lab);
+    const id = document.createElement('span');
+    id.className = 'sp-chap-id';
+    id.textContent = m.label || fmtClock(m.time);
+    const meta = document.createElement('span');
+    meta.className = 'sp-chap-meta';
+    meta.textContent = fmtClock(m.time);
+    row.appendChild(stateEl);
+    row.appendChild(id);
+    row.appendChild(meta);
     row.addEventListener('click', (function (marker) {
       return function (ev) {
         ev.preventDefault();
@@ -591,7 +608,12 @@ Player.prototype.markCurrentChapter = function (state) {
   }
   const rows = this.chaptersEl.querySelectorAll('.sp-chap');
   for (let i = 0; i < rows.length; i++) {
-    rows[i].classList.toggle('sp-chap-on', rows[i].dataset.markerId === String(currentId));
+    const on = rows[i].dataset.markerId === String(currentId);
+    rows[i].classList.toggle('sp-chap-on', on);
+    const ico = rows[i].querySelector('.sp-chap-ico');
+    const lab = rows[i].querySelector('.sp-chap-state-label');
+    if (ico) ico.textContent = on ? '\u2713' : '\u00B7';
+    if (lab) lab.textContent = on ? 'NOW' : ('CH ' + (i + 1));
   }
 };
 
@@ -846,6 +868,7 @@ Player.prototype.toggleFullscreen = function () {
 
 // A [ / ] / ↑ / ↓ jump (or a digit 0–9 pick) names the chapter it landed on in a brief
 // bottom-center toast that fades on its own; role="status" lets screen readers announce it.
+// Visual language matches scsh job-graph cards (left accent, state / title / meta).
 Player.prototype.chapterToast = function (target) {
   if (!target || !this.toastEl) return;
   const markers = this.controller.getState().markers;
@@ -855,7 +878,10 @@ Player.prototype.chapterToast = function (target) {
   }
   const landed = index >= 0 ? markers[index] : target;
   const name = landed.label || fmtClock(landed.time);
-  this.showToast(index >= 0 ? (index + 1) + '/' + markers.length + ' · ' + name : name);
+  const meta = index >= 0
+    ? (index + 1) + '/' + markers.length + ' · ' + fmtClock(landed.time)
+    : fmtClock(landed.time);
+  this.showToastCard({ state: 'CHAPTER', title: name, meta: meta });
 };
 
 // Jump to the chapter at 0-based `index` (digit keys 0–9). Seek only — no autoplay.
@@ -868,11 +894,32 @@ Player.prototype.jumpChapterIndex = function (index, origin) {
   return marker;
 };
 
-Player.prototype.showToast = function (text) {
+Player.prototype.showToastCard = function (bits) {
   const el = this.toastEl;
-  if (!el) return;
+  if (!el || !bits) return;
   const self = this;
-  el.textContent = text;
+  el.textContent = '';
+  const state = document.createElement('span');
+  state.className = 'sp-toast-state';
+  const ico = document.createElement('span');
+  ico.className = 'sp-toast-ico';
+  ico.setAttribute('aria-hidden', 'true');
+  ico.textContent = '\u2713';
+  const lab = document.createElement('span');
+  lab.className = 'sp-toast-state-label';
+  lab.textContent = bits.state || 'CHAPTER';
+  state.appendChild(ico);
+  state.appendChild(document.createTextNode(' '));
+  state.appendChild(lab);
+  const id = document.createElement('span');
+  id.className = 'sp-toast-id';
+  id.textContent = bits.title || '';
+  const meta = document.createElement('span');
+  meta.className = 'sp-toast-meta';
+  meta.textContent = bits.meta || '';
+  el.appendChild(state);
+  el.appendChild(id);
+  el.appendChild(meta);
   el.classList.remove('sp-toast-show');
   // Retrigger the transition when the same chapter fires twice in a row.
   void el.offsetWidth;
