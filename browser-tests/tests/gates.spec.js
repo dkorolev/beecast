@@ -97,6 +97,29 @@ test.describe('human-facing behavior', () => {
     await expect(toast).not.toHaveClass(/sp-toast-show/, { timeout: 5000 });
   });
 
+  test('digit and arrow keys jump chapters; c toggles the panel', async ({ page }) => {
+    await page.goto(fileUrl());
+    const player = page.locator('.beecast-player');
+    await player.focus();
+    await page.keyboard.press('c');
+    const panel = page.locator('.sp-chapters');
+    await expect(panel).toBeVisible();
+    // Open panel rows stay clickable (not rebuilt out from under the pointer).
+    await panel.locator('.sp-chap').nth(0).click();
+    await expect(panel).toBeHidden();
+    await player.focus();
+    await page.keyboard.press('c');
+    await expect(panel).toBeVisible();
+    await page.keyboard.press('c');
+    await expect(panel).toBeHidden();
+    await player.focus();
+    await page.keyboard.press('0');
+    await expect(page.locator('.sp-toast')).toHaveClass(/sp-toast-show/);
+    expect(await page.locator('.sp-toast').textContent()).toMatch(/^1\/\d+ · ./);
+    await page.keyboard.press('ArrowDown');
+    expect(await page.locator('.sp-toast').textContent()).toMatch(/^2\/\d+ · ./);
+  });
+
   test('menus move focus with arrows and return it with Escape', async ({ page }) => {
     await page.goto(fileUrl());
     const speed = page.locator('.sp-speed');
