@@ -487,7 +487,8 @@ Player.prototype.layoutMarkers = function (state) {
 
 Player.prototype.toggleChapters = function (force) {
   if (!this.chaptersEl) return;
-  const show = force != null ? force : this.chaptersEl.hidden;
+  // Explicit toggle: open when hidden, close when visible — `c` must close as well as open.
+  const show = force != null ? !!force : !!this.chaptersEl.hidden;
   // Focus must be checked BEFORE hiding: hiding the focused row silently moves
   // focus to <body>, and the ☰ button would never get it back.
   const hadFocus = !show && typeof document !== 'undefined' &&
@@ -495,6 +496,7 @@ Player.prototype.toggleChapters = function (force) {
   this.chaptersEl.hidden = !show;
   if (this.chapBtn) this.chapBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
   if (show) {
+    this._chaptersRenderKey = null;
     this.renderChapters(this.controller.getState());
     const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
     if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
@@ -508,17 +510,22 @@ Player.prototype.renderChapters = function (state) {
   if (!this.chaptersEl) return;
   const self = this;
   this.chaptersEl.innerHTML = '';
+  const markers = state.markers || [];
+  this._chaptersRenderKey = markers.map(function (m) {
+    return m.id + '\0' + m.time + '\0' + (m.label || '');
+  }).join('\n');
   const now = state.currentTime;
   let currentId = null;
-  for (let i = 0; i < state.markers.length; i++) {
-    if (state.markers[i].time <= now + 1e-9) currentId = state.markers[i].id;
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i].time <= now + 1e-9) currentId = markers[i].id;
   }
-  for (const m of state.markers) {
+  for (const m of markers) {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'sp-chap' + (m.id === currentId ? ' sp-chap-on' : '') +
       (m.type === 'annotation' ? ' sp-chap-ann' : '');
     row.setAttribute('role', 'menuitem');
+    row.dataset.markerId = String(m.id);
     const t = document.createElement('span');
     t.className = 'sp-chap-t';
     t.textContent = fmtClock(m.time);
@@ -526,6 +533,7 @@ Player.prototype.renderChapters = function (state) {
     row.appendChild(document.createTextNode(m.label || ''));
     row.addEventListener('click', (function (marker) {
       return function (ev) {
+        ev.preventDefault();
         ev.stopPropagation();
         const el = self.eventTarget || self.root;
         // Cancellable marker selection (Phase 5).
@@ -544,6 +552,7 @@ Player.prototype.renderChapters = function (state) {
         if (cancelled) return;
         // Seek only — chapter picks must not start playback (same as [ ] / ←→).
         self.seek(marker.time, 'marker');
+        self.chapterToast(marker);
         self.toggleChapters(false);
       };
     })(m));
@@ -551,9 +560,30 @@ Player.prototype.renderChapters = function (state) {
   }
 };
 
+Player.prototype.markCurrentChapter = function (state) {
+  if (!this.chaptersEl) return;
+  const markers = state.markers || [];
+  let currentId = null;
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i].time <= state.currentTime + 1e-9) currentId = markers[i].id;
+  }
+  const rows = this.chaptersEl.querySelectorAll('.sp-chap');
+  for (let i = 0; i < rows.length; i++) {
+    rows[i].classList.toggle('sp-chap-on', rows[i].dataset.markerId === String(currentId));
+  }
+};
+
 Player.prototype.syncChaptersUi = function (state) {
   if (this.chapBtn) this.chapBtn.hidden = !(state.markers && state.markers.length);
-  if (this.chaptersEl && !this.chaptersEl.hidden) this.renderChapters(state);
+  if (!this.chaptersEl || this.chaptersEl.hidden) return;
+  // Rebuilding the list on every playback tick destroys the buttons mid-click — only
+  // rebuild when the marker set changes; otherwise refresh the current-chapter highlight.
+  const markers = state.markers || [];
+  const key = markers.map(function (m) {
+    return m.id + '\0' + m.time + '\0' + (m.label || '');
+  }).join('\n');
+  if (key !== this._chaptersRenderKey) this.renderChapters(state);
+  else this.markCurrentChapter(state);
 };
 
 Player.prototype.toggleSpeedMenu = function (force) {
@@ -618,9 +648,10 @@ Player.prototype.onKey = function (ev) {
       return;
     }
   }
-  const menu = ev.target && ev.target.closest && ev.target.closest('[role="menu"]');
-  if (menu && ['ArrowUp', 'ArrowDown', 'Home', 'End'].indexOf(ev.key) !== -1) {
-    const items = Array.prototype.slice.call(menu.querySelectorAll('button:not([hidden])'));
+  // Speed-menu focus travel only — chapter arrows are chapter jumps (below), not menu nav.
+  const speedMenu = this.speedMenuEl && !this.speedMenuEl.hidden ? this.speedMenuEl : null;
+  if (speedMenu && ['ArrowUp', 'ArrowDown', 'Home', 'End'].indexOf(ev.key) !== -1) {
+    const items = Array.prototype.slice.call(speedMenu.querySelectorAll('button:not([hidden])'));
     if (!items.length) return;
     let index = items.indexOf(document.activeElement);
     if (ev.key === 'Home') index = 0;
@@ -631,14 +662,27 @@ Player.prototype.onKey = function (ev) {
     ev.stopPropagation();
     return;
   }
+  // Chapters panel: Home/End still move focus among rows; Up/Down jump chapters.
+  const chapMenu = this.chaptersEl && !this.chaptersEl.hidden ? this.chaptersEl : null;
+  if (chapMenu && (ev.key === 'Home' || ev.key === 'End')) {
+    const items = Array.prototype.slice.call(chapMenu.querySelectorAll('button:not([hidden])'));
+    if (!items.length) return;
+    items[ev.key === 'Home' ? 0 : items.length - 1].focus();
+    ev.preventDefault();
+    ev.stopPropagation();
+    return;
+  }
   const k = ev.key;
   if (k === ' ') this.toggle('keyboard');
   else if (k === 'ArrowLeft') this.seek(this.getCurrentTime() - SEEK_STEP_SECS, 'keyboard');
   else if (k === 'ArrowRight') this.seek(this.getCurrentTime() + SEEK_STEP_SECS, 'keyboard');
+  else if (k === 'ArrowUp') this.chapterToast(this.controller.jumpMarker(-1, 'keyboard'));
+  else if (k === 'ArrowDown') this.chapterToast(this.controller.jumpMarker(1, 'keyboard'));
   else if (k === '<' || k === ',') this.controller.cycleSpeed(-1, 'keyboard');
   else if (k === '>' || k === '.') this.controller.cycleSpeed(1, 'keyboard');
   else if (k === '[') this.chapterToast(this.controller.jumpMarker(-1, 'keyboard'));
   else if (k === ']') this.chapterToast(this.controller.jumpMarker(1, 'keyboard'));
+  else if (k.length === 1 && k >= '0' && k <= '9') this.jumpChapterIndex(k.charCodeAt(0) - 48, 'keyboard');
   else if (k === 'c' || k === 'C') this.toggleChapters();
   else if (k === 'f' || k === 'F') this.toggleFullscreen();
   else return;
@@ -745,8 +789,8 @@ Player.prototype.toggleFullscreen = function () {
   }
 };
 
-// A [ / ] jump names the chapter it landed on in a brief bottom-center toast that fades on
-// its own; role="status" lets screen readers announce the same text.
+// A [ / ] / ↑ / ↓ jump (or a digit 0–9 pick) names the chapter it landed on in a brief
+// bottom-center toast that fades on its own; role="status" lets screen readers announce it.
 Player.prototype.chapterToast = function (target) {
   if (!target || !this.toastEl) return;
   const markers = this.controller.getState().markers;
@@ -757,6 +801,16 @@ Player.prototype.chapterToast = function (target) {
   const landed = index >= 0 ? markers[index] : target;
   const name = landed.label || fmtClock(landed.time);
   this.showToast(index >= 0 ? (index + 1) + '/' + markers.length + ' · ' + name : name);
+};
+
+// Jump to the chapter at 0-based `index` (digit keys 0–9). Seek only — no autoplay.
+Player.prototype.jumpChapterIndex = function (index, origin) {
+  const markers = this.controller.getState().markers;
+  if (!markers.length || index < 0 || index >= markers.length) return null;
+  const marker = markers[index];
+  this.seek(marker.time, origin || 'keyboard');
+  this.chapterToast(marker);
+  return marker;
 };
 
 Player.prototype.showToast = function (text) {

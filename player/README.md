@@ -215,19 +215,21 @@ growing edge, no center play overlay. Seeking back (or `play()`) leaves live; th
 - Icon-only controls expose accessible names (`aria-label`) independent of `title`.
 - Play/pause uses `aria-pressed`; speed options use `aria-checked`.
 - Seek uses Pointer Events, so mouse, pen, and touch share the same direct-manipulation path; it also supports Arrow keys, Home, End, and Page Up/Down.
-- Speed and chapter menus move focus into the current item, support Arrow Up/Down plus Home/End, close with Escape, and return focus to their trigger.
+- Speed menus move focus into the current item, support Arrow Up/Down plus Home/End, close with Escape, and return focus to their trigger. Chapter lists keep Home/End for focus travel; Arrow Up/Down jump chapters instead.
 - `:focus-visible` styles use `--beecast-color-focus` / accent.
 - `accessibility: 'snapshot' | 'off'` — snapshot mode exposes the current terminal as off-screen preformatted text (not a live region, so playback does not flood assistive tech).
 - `prefers-reduced-motion` disables overlay motion.
 
 Keyboard when the player has focus: **space** play/pause · **←/→** seek ±5s ·
+**↑/↓** previous/next chapter · **0–9** jump to chapter N (0-based) ·
 **< / >** speed down/up · **[ / ]** previous/next marker (seek only — does not
-autoplay) · **c** chapters ·
+autoplay) · **c** toggle chapters ·
 **f** fullscreen · **Escape** closes menus.
 
-A `[` / `]` jump names the chapter it landed on in a brief bottom-center toast
-(`role="status"`, so screen readers announce it too) that fades out on its own;
-`prefers-reduced-motion` drops the fade.
+A chapter jump (`[ ]` / `↑ ↓` / a digit / a panel click) names the chapter it landed
+on in a brief bottom-center toast (`role="status"`, so screen readers announce it too)
+that fades out on its own; `prefers-reduced-motion` drops the fade. The toast matches
+scsh's session-browser pill (padded surface, soft shadow, above the control bar).
 
 At widths up to 430 px the toolbar compacts and hides the two visually duplicated clock labels; the seek slider retains the complete `current of duration` value for assistive technology, and play, seek, chapters, speed, and fullscreen all remain reachable.
 
