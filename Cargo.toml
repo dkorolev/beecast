@@ -4,7 +4,7 @@ members = ["dto", "player", "page", "cli"]
 
 # One source of truth for the shared package metadata, and for the version every crate inherits (§7).
 [workspace.package]
-version = "0.9.4"
+version = "0.9.5"
 edition = "2021"
 authors = ['Dmitry "Dima" Korolev <dmitry.korolev@gmail.com>']
 license = "MIT"
