@@ -14,12 +14,14 @@
 /* `height` (not `min-height`): the flex chain must be definite, or the percentage heights
    down at #player resolve to content height and the terminal renders 0-sized. */
 body { margin: 0; background: #121317; color: #d7d9df; font: 14px/1.5 system-ui, sans-serif;
-  height: 100vh; display: flex; flex-direction: column; }
+  height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
 header { padding: 14px 16px 4px; flex: 0 0 auto; }
 header h1 { margin: 0; font-size: 18px; }
 #summary { margin: 6px 0 0; color: #a7abb6; max-width: 84ch; }
 #summary[hidden] { display: none; }
-.share { padding: 10px 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex: 0 0 auto; }
+.share { padding: 8px 16px; flex: 0 0 auto; }
+.share summary { color: #7ab4ff; cursor: pointer; width: max-content; }
+.share-fields { padding-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .share button { color: #7ab4ff; background: none; border: 1px solid #2a2d36; border-radius: 6px;
   padding: 4px 10px; font: inherit; cursor: pointer; }
 .share button:hover { border-color: #7ab4ff; }
@@ -29,12 +31,15 @@ header h1 { margin: 0; font-size: 18px; }
 #note:focus-visible { outline: 2px solid #7ab4ff; outline-offset: 1px; }
 .dim { color: #8a8d97; }
 .dim code { background: #1d1f26; padding: 1px 5px; border-radius: 4px; }
-#copied { color: #7dd87d; }
-#copied[hidden] { display: none; }
+#copied { color: #7dd87d; display: inline-block; min-width: 9ch; }
+#copied[hidden] { visibility: hidden; }
 #note-banner { margin: 0 16px 10px; padding: 8px 12px; border: 1px solid #6b5d2a; background: #2a2410;
   border-radius: 6px; color: #ffd97a; max-width: 100ch; flex: 0 0 auto; }
 #note-banner[hidden] { display: none; }
 #note-banner .at { color: #b9a24e; margin-right: 8px; font-variant-numeric: tabular-nums; }
+#note-banner.arrived { animation: arrive 1.2s ease-out; }
+@keyframes arrive { from { outline: 2px solid #ffd97a; } to { outline: 2px solid transparent; } }
+@media (prefers-reduced-motion: reduce) { #note-banner.arrived { animation: none; outline: 2px solid #ffd97a; } }
 /* Player is primary: fills remaining viewport. Chapters live inside the player. */
 #player-wrap { flex: 1 1 auto; padding: 0 16px 10px; min-height: 0; display: flex; flex-direction: column; }
 #player, .beecast-player, beecast-player { width: 100%; height: 100%; max-width: 100%; min-height: 0; }
@@ -53,13 +58,16 @@ footer { padding: 0 16px 12px; font-size: 12px; color: #6c7080; flex: 0 0 auto; 
 <h1>@@BEECAST_TITLE@@</h1>
 <p id="summary"@@BEECAST_SUMMARY_HIDDEN@@>@@BEECAST_SUMMARY@@</p>
 </header>
-<div class="share">
+<details class="share">
+<summary>Share this moment</summary>
+<div class="share-fields">
 <label class="dim" for="note">note</label>
 <input id="note" type="text" placeholder="optional comment for the link" autocomplete="off">
 <button id="copy-t" type="button">🔗 copy link at current time</button>
 <span id="copied" role="status" aria-live="polite" hidden>copied</span>
-<span class="dim">deep link: <code>?t=90</code> / <code>?t=1:30&amp;note=…</code></span>
+<span class="dim">The link includes the current playback time.</span>
 </div>
+</details>
 <div id="note-banner" hidden></div>
 <div id="player-wrap"><div id="player"></div></div>
 <footer>@@BEECAST_FOOTER@@ — a single self-contained file: save this page and it keeps working offline.</footer>
@@ -101,20 +109,57 @@ const META = @@BEECAST_META_JSON@@;
   const opts = { fit: 'both', markers: MARKERS, speed: 1, idleTimeLimit: 2 };
   if (linkT != null && linkT > 0) opts.startAt = linkT;
   const player = BeeCastPlayer.create({ data: CAST_DATA }, $('player'), opts);
+  try {
+    if (!history.state || !Number.isFinite(history.state.t)) {
+      history.replaceState({ t: linkT == null ? 0 : linkT }, '', location.href);
+    }
+  } catch (_) {}
+
+  function urlAt(t) {
+    const url = new URL(location.href);
+    url.searchParams.set('t', String(Math.round(Math.max(0, t) * 10) / 10));
+    return url.pathname + url.search + url.hash;
+  }
+
+  // Follow packdiff's history rule: repeated/direct manipulation keeps the current
+  // entry useful with replaceState; named navigation (a chapter) creates a Back target.
+  // Playback ticks never touch history.
+  document.querySelector('.beecast-player').addEventListener('beecast-seek', (ev) => {
+    if (!ev.detail || ev.detail.origin === 'history') return;
+    const method = ev.detail.origin === 'marker' ? 'pushState' : 'replaceState';
+    try { history[method]({ t: ev.detail.currentTime }, '', urlAt(ev.detail.currentTime)); } catch (_) {}
+  });
+  window.addEventListener('popstate', (ev) => {
+    const restored = ev.state && Number.isFinite(ev.state.t)
+      ? ev.state.t : parseT(new URLSearchParams(location.search).get('t'));
+    if (restored == null) return;
+    player.seek(restored, 'history');
+    const root = document.querySelector('.beecast-player');
+    root.classList.remove('arrival-flash');
+    void root.offsetWidth;
+    root.classList.add('arrival-flash');
+    try { root.focus({ preventScroll: true }); } catch (_) { root.focus(); }
+  });
 
   $('copy-t').addEventListener('click', () => {
     const now = player.getCurrentTime();
     const t = Math.round(now * 10) / 10;
-    const base = location.href.split(/[?#]/)[0];
-    let url = base + '?t=' + t;
+    const target = new URL(location.href);
+    target.search = '';
+    target.hash = '';
+    target.searchParams.set('t', String(t));
     const note = $('note').value.trim();
-    if (note) url += '&note=' + encodeURIComponent(note);
-    try { history.replaceState(null, '', url); } catch (e) { /* some file:// contexts refuse; the copy below still works */ }
-    const done = () => {
+    if (note) target.searchParams.set('note', note);
+    const url = target.href;
+    try { history.replaceState({ t: t }, '', url); } catch (e) { /* some file:// contexts refuse; copy still works */ }
+    const feedback = (message, failed) => {
       const el = $('copied');
+      el.textContent = message;
+      el.style.color = failed ? '#ff9b9b' : '';
       el.hidden = false;
       setTimeout(() => { el.hidden = true; }, 1200);
     };
+    const done = () => feedback('copied', false);
     const fallback = () => {
       const ta = document.createElement('textarea');
       ta.value = url;
@@ -125,7 +170,7 @@ const META = @@BEECAST_META_JSON@@;
       let ok = false;
       try { ok = document.execCommand('copy'); } catch (e) {}
       document.body.removeChild(ta);
-      if (ok) done(); else window.prompt('Copy this link:', url);
+      if (ok) done(); else feedback('copy failed', true);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(done, fallback);
@@ -144,6 +189,7 @@ const META = @@BEECAST_META_JSON@@;
     }
     nb.appendChild(document.createTextNode(linkNote));
     nb.hidden = false;
+    nb.classList.add('arrived');
     $('note').value = linkNote; // pre-fill so re-sharing keeps the comment
   }
 })();

@@ -5,9 +5,11 @@ set -e
 cd "$(git rev-parse --show-toplevel)"
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --release -- -D warnings
 cargo test --workspace
 cargo test --workspace --release
 python3 -m unittest discover -s seecast/tests
+python3 -m unittest discover -s .github -p 'test_*.py'
 # Packaging (the dry run of publishing) must be warning-free: a warning here means the
 # published crates would silently differ from the repo's intent. Cargo's transient
 # "spurious network error" retry warnings from the index fetch are not packaging

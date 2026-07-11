@@ -279,7 +279,7 @@ Player.prototype.buildDom = function (mount, cfg) {
   root.className = 'beecast-player';
   root.setAttribute('part', 'root');
   root.tabIndex = 0;
-  root.setAttribute('role', 'application');
+  root.setAttribute('role', 'region');
   root.setAttribute('aria-label', 'Terminal recording player');
 
   let bar = '';
@@ -388,15 +388,21 @@ Player.prototype.buildDom = function (mount, cfg) {
       const dur = self.controller.cast.duration;
       self.seek(frac * dur, origin || 'pointer');
     };
-    this.seekEl.addEventListener('mousedown', function (ev) {
+    this.seekEl.addEventListener('pointerdown', function (ev) {
+      if (ev.button !== 0) return;
+      ev.preventDefault();
       seekTo(ev, 'pointer');
-      const move = function (e) { seekTo(e, 'pointer'); };
-      const up = function () {
-        document.removeEventListener('mousemove', move);
-        document.removeEventListener('mouseup', up);
+      self.seekEl.setPointerCapture(ev.pointerId);
+      const move = function (e) { if (e.pointerId === ev.pointerId) seekTo(e, 'pointer'); };
+      const up = function (e) {
+        if (e.pointerId !== ev.pointerId) return;
+        self.seekEl.removeEventListener('pointermove', move);
+        self.seekEl.removeEventListener('pointerup', up);
+        self.seekEl.removeEventListener('pointercancel', up);
       };
-      document.addEventListener('mousemove', move);
-      document.addEventListener('mouseup', up);
+      self.seekEl.addEventListener('pointermove', move);
+      self.seekEl.addEventListener('pointerup', up);
+      self.seekEl.addEventListener('pointercancel', up);
     });
     this.seekEl.addEventListener('keydown', function (ev) {
       const dur = self.controller.cast.duration;
@@ -415,7 +421,8 @@ Player.prototype.buildDom = function (mount, cfg) {
   }
   this.keyHandler = function (ev) { self.onKey(ev); };
   root.addEventListener('keydown', this.keyHandler);
-  root.addEventListener('click', function () {
+  root.addEventListener('click', function (ev) {
+    if (ev.target !== root && !ev.target.closest('.sp-screen-box')) return;
     try { root.focus({ preventScroll: true }); } catch (_) { root.focus(); }
   });
 };
@@ -485,7 +492,11 @@ Player.prototype.toggleChapters = function (force) {
     this.chaptersEl.contains(document.activeElement);
   this.chaptersEl.hidden = !show;
   if (this.chapBtn) this.chapBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
-  if (show) this.renderChapters(this.controller.getState());
+  if (show) {
+    this.renderChapters(this.controller.getState());
+    const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
+    if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
+  }
   else if (hadFocus && this.chapBtn) {
     try { this.chapBtn.focus({ preventScroll: true }); } catch (_) {}
   }
@@ -552,6 +563,8 @@ Player.prototype.toggleSpeedMenu = function (force) {
     this.renderSpeedMenu();
     this.speedMenuEl.hidden = false;
     if (this.speedBtn) this.speedBtn.setAttribute('aria-expanded', 'true');
+    const current = this.speedMenuEl.querySelector('.sp-on') || this.speedMenuEl.querySelector('button');
+    if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
     this.speedAway = function () { self.toggleSpeedMenu(false); };
     document.addEventListener('click', this.speedAway);
   } else {
@@ -602,6 +615,19 @@ Player.prototype.onKey = function (ev) {
       ev.preventDefault();
       return;
     }
+  }
+  const menu = ev.target && ev.target.closest && ev.target.closest('[role="menu"]');
+  if (menu && ['ArrowUp', 'ArrowDown', 'Home', 'End'].indexOf(ev.key) !== -1) {
+    const items = Array.prototype.slice.call(menu.querySelectorAll('button:not([hidden])'));
+    if (!items.length) return;
+    let index = items.indexOf(document.activeElement);
+    if (ev.key === 'Home') index = 0;
+    else if (ev.key === 'End') index = items.length - 1;
+    else index = (index + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[index].focus();
+    ev.preventDefault();
+    ev.stopPropagation();
+    return;
   }
   const k = ev.key;
   if (k === ' ') this.toggle('keyboard');

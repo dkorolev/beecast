@@ -235,8 +235,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// were captured from the CLI at the commit before the page pipeline moved into the
 /// zero-dependency `beecast-page` crate, and they pin the fixture pages whole — template, player,
 /// escaping, float formatting, and the embedded metadata document. Re-pins since that
-/// capture: the 0.1.0 → 0.2.0 version bump of the footer, then 0.2.1 together with the favicon
-/// swap (the bee emoji became scsh's prompt chevron on a dark tile, recolored red), then the
+/// capture: 0.2.1 together with the favicon swap (the bee emoji became scsh's prompt chevron
+/// on a dark tile, recolored red), then the
 /// vendored asciinema-player gave way to the first-party clean-room player (the page
 /// shrank ~168KB and now carries a single MIT license), then the 0.3.0 footer stamp of that
 /// change's version bump, then 0.3.1 with the inline-block run fix (multi-row background
@@ -252,19 +252,26 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// `fit: 'both'` learned to skip vertical scale on content-sized mounts (the ResizeObserver
 /// shrink ratchet that collapsed scsh's live dashboard), then the 0.9.0 footer stamp of that
 /// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, the 0.9.4 footer stamp, then catch-up playback started returning to Live at the appended edge, and the 0.9.5 footer stamp. When
-/// the template, the player, or the workspace version changes *intentionally*, re-pin using
-/// the lengths and fingerprints this assertion prints.
+/// the template or player changes *intentionally*, re-pin using the lengths and fingerprints
+/// this assertion prints. The footer's workspace version is normalized so a manifest-only
+/// release commit does not require an unrelated fingerprint change.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
   std::fs::copy(fixture("sample.cast"), dir.join("sample.cast")).unwrap();
   std::fs::copy(fixture("sample.meta.json"), dir.join("sample.meta.json")).unwrap();
-  let with_meta = beecast(&["build", "sample.cast", "-o", "-"], &dir).stdout;
+  let with_meta = String::from_utf8(beecast(&["build", "sample.cast", "-o", "-"], &dir).stdout)
+    .unwrap()
+    .replace(env!("CARGO_PKG_VERSION"), "<version>")
+    .into_bytes();
   // The same recording under another name and without the sidecar: the fallback-title path.
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
-  let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
+  let bare = String::from_utf8(beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout)
+    .unwrap()
+    .replace(env!("CARGO_PKG_VERSION"), "<version>")
+    .into_bytes();
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (97763, 0xe6e8ed9340d465c3, 97553, 0xaf7b2de0b0dd51a8), "the generated page's bytes moved");
+  assert_eq!(got, (102066, 0x1300fe1950c0717f, 101856, 0xacae89d27ad4b6d8), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

@@ -53,6 +53,8 @@ Why each internal dep carries both `path` and `version`: inside the workspace ca
 
 Both gates (pre-push and CI — same checks by design, see [`CONTRIBUTING.md`](CONTRIBUTING.md)) run `cargo package --workspace` and require it to be **warning-free**: packaging is the dry run of publishing, and a warning there means the published crates would silently differ from the repo's intent. (Cargo's transient `spurious network error` retry warnings are filtered out — an index hiccup is not a packaging warning.) Packaging the whole workspace at once has no ordering constraint: cargo ≥ 1.90 resolves the internal dependencies against the locally built packages, so this works before anything is on the registry.
 
+PR CI also runs `.github/check-release.py` against GitHub's base and head SHAs (the head passed explicitly, because the pull_request checkout is the synthetic merge commit, not the branch tip). It requires the base version to match every workspace crate on crates.io, permits exactly the next patch, minor, or major version, and requires the final commit to be named `Bump to X.Y.Z.` and contain only the version changes in `Cargo.toml` and `Cargo.lock`. A PR that is nothing but the bump commit passes — the repair path when a release must be re-cut without code changes. This turns the release-history convention into a merge gate rather than a checklist item.
+
 To see exactly which files a crate ships:
 
 ```console
