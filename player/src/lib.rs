@@ -368,7 +368,18 @@ unsubLive();
 ctrl.setLive(true);
 ctrl.play(); // play from the parked edge is a rewind: live drops
 assert.strictEqual(ctrl.getState().live, false);
-ctrl.pause();
+// Catching back up to the current appended edge automatically resumes Live mode.
+clock.flush(0);
+clock.flush(3000);
+assert.strictEqual(ctrl.getState().status, 'ended');
+assert.strictEqual(ctrl.getState().live, true);
+
+// Explicitly leaving Live mode opts out of the automatic return.
+ctrl.setLive(false);
+ctrl.play();
+clock.flush(0);
+clock.flush(3000);
+assert.strictEqual(ctrl.getState().live, false);
 
 // getState is a snapshot (mutating returned markers does not corrupt internal list)
 const s1 = ctrl.getState();

@@ -251,7 +251,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// UI without duplicate speed/chapter chrome, semantic theme tokens, richer markers), then
 /// `fit: 'both'` learned to skip vertical scale on content-sized mounts (the ResizeObserver
 /// shrink ratchet that collapsed scsh's live dashboard), then the 0.9.0 footer stamp of that
-/// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, and the 0.9.4 footer stamp. When
+/// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, the 0.9.4 footer stamp, then catch-up playback started returning to Live at the appended edge, and the 0.9.5 footer stamp. When
 /// the template, the player, or the workspace version changes *intentionally*, re-pin using
 /// the lengths and fingerprints this assertion prints.
 #[test]
@@ -264,7 +264,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   std::fs::copy(fixture("sample.cast"), dir.join("bare.cast")).unwrap();
   let bare = beecast(&["build", "bare.cast", "-o", "-"], &dir).stdout;
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (97565, 0x128d6bd1a4f09a38, 97355, 0xa8e0650d0b37eba7), "the generated page's bytes moved");
+  assert_eq!(got, (97763, 0xe6e8ed9340d465c3, 97553, 0xaf7b2de0b0dd51a8), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

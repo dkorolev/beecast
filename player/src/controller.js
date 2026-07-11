@@ -112,6 +112,7 @@ function Controller(opts) {
   this.eventIdx = 0;
   this.atLiveEdge = cast.duration <= 0;
   this.live = false; // declared-live mode (see setLive), distinct from the positional atLiveEdge
+  this.returnToLiveAtEnd = false;
 
   this.applyEventsUpTo(0);
   if (opts.startAt != null) this.seek(parseTime(opts.startAt), { origin: 'api', silent: true });
@@ -271,9 +272,11 @@ Controller.prototype.getState = function () {
 // the bar reads "now", not a position that jitters as the duration grows. Any explicit
 // rewind — a seek before the edge, or play() (which would replay from the top) — drops
 // live mode: the viewer chose a position, and the bar must tell the truth again.
-Controller.prototype.setLive = function (on, origin) {
+Controller.prototype.setLive = function (on, origin, preserveReturn) {
   on = !!on;
-  if (this.disposed || this.live === on) return;
+  if (this.disposed) return;
+  if (!preserveReturn) this.returnToLiveAtEnd = on;
+  if (this.live === on) return;
   this.live = on;
   if (on) {
     this.pause(origin || 'api');
@@ -345,7 +348,7 @@ Controller.prototype.play = function (origin) {
   if (this.disposed) return;
   if (this.status === 'playing') return;
   // Playing from live mode is a rewind (parked at the edge, play replays from the top).
-  if (this.live) this.setLive(false, origin || 'api');
+  if (this.live) this.setLive(false, origin || 'api', true);
   if (this.pacedPos >= this.pacing.pacedDuration) {
     this.pacedPos = 0;
     this.applyEventsUpTo(0);
@@ -394,6 +397,7 @@ Controller.prototype.tick = function (nowMs) {
       this.clock.cancelAnimationFrame(this.raf);
       this.raf = null;
     }
+    if (this.returnToLiveAtEnd) this.setLive(true, 'source');
     this.emit({ type: 'ended', origin: 'source', resized: result.resized });
     return;
   }
@@ -419,7 +423,9 @@ Controller.prototype.seek = function (t, opts) {
   this.syncLiveEdge();
   // Seeking away from the edge is the viewer choosing a position: live mode ends. A seek
   // TO the edge (e.g. seek(Infinity) while entering live) keeps it.
-  if (this.live && t < this.cast.duration - 0.25) this.setLive(false, opts.origin || 'api');
+  if (this.live && t < this.cast.duration - 0.25) {
+    this.setLive(false, opts.origin || 'api', true);
+  }
   if (!opts.silent) this.emit({ type: 'seek', origin: opts.origin || 'api', time: t });
 };
 

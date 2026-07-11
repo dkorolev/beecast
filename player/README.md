@@ -257,7 +257,9 @@ rather than a position that jitters as the duration grows. Create with `live: tr
 `controls: { live: true }` to start following and expose the toolbar control. Any explicit
 rewind — a seek before the edge, or `play()` (which would replay from the top) — drops
 live mode with a `livechange` event (`beecast-livechange` on the element); `getState().live`
-reports it. The center play overlay is suppressed while live.
+reports it. Playback that catches back up to the appended edge automatically returns to
+live mode; explicitly calling `setLive(false)` opts out. The center play overlay is
+suppressed while live.
 
 The core half is exposed on `BeeCastVT` for embedders that need it without a mounted player.
 
