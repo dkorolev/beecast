@@ -50,6 +50,27 @@ for (const transport of ['file', 'http']) {
 }
 
 test.describe('human-facing behavior', () => {
+  test('adjacent terminal background runs paint without horizontal seams', async ({ page }) => {
+    await page.goto(fileUrl());
+    const geometry = await page.evaluate(() => {
+      const screen = document.querySelector('.sp-screen');
+      screen.style.transform = 'scale(0.773)'; // exercise fractional pixel boundaries
+      screen.innerHTML = '<span style="background:#777">AAAAAAAAAA</span>\n' +
+        '<span style="background:#777">BBBBBBBBBB</span>\n' +
+        '<span style="background:#777">CCCCCCCCCC</span>';
+      const rows = Array.from(screen.querySelectorAll('span')).map((span) => {
+        const rect = span.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom };
+      });
+      return rows;
+    });
+    expect(geometry).toHaveLength(3);
+    // Firefox reports adjacent edges with ~0.017 px of floating-point noise; anything
+    // below 0.02 px still paints the same device pixel with no visible background gap.
+    expect(Math.abs(geometry[0].bottom - geometry[1].top)).toBeLessThan(0.02);
+    expect(Math.abs(geometry[1].bottom - geometry[2].top)).toBeLessThan(0.02);
+  });
+
   test('chapter controls stay absent and c is a no-op without chapters', async ({ page }) => {
     await page.goto(fileUrl());
     await page.evaluate(() => {
