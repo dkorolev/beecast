@@ -493,8 +493,17 @@ Player.prototype.layoutMarkers = function (state) {
   }
 };
 
+Player.prototype.hasChapters = function () {
+  const markers = this.controller && this.controller.getState().markers;
+  return !!(markers && markers.length);
+};
+
 Player.prototype.toggleChapters = function (force, opts) {
   if (!this.chaptersEl) return;
+  // A missing chapter set is not an empty menu. Keyboard `c` and the public toggle are
+  // genuine no-ops until markers exist; an explicit close remains allowed so a live
+  // player can retract a panel if an updated metadata document removes its chapters.
+  if (!this.hasChapters() && force !== false) return;
   opts = opts || {};
   // Explicit toggle: open when hidden, close when visible — `c` must close as well as open.
   const show = force != null ? !!force : !!this.chaptersEl.hidden;
@@ -756,7 +765,10 @@ Player.prototype.onKey = function (ev) {
   else if (k === '[') this.chapterToast(this.controller.jumpMarker(-1, 'keyboard'));
   else if (k === ']') this.chapterToast(this.controller.jumpMarker(1, 'keyboard'));
   else if (k.length === 1 && k >= '0' && k <= '9') this.jumpChapterIndex(k.charCodeAt(0) - 48, 'keyboard');
-  else if (k === 'c' || k === 'C') this.toggleChapters();
+  else if (k === 'c' || k === 'C') {
+    if (!this.hasChapters()) return;
+    this.toggleChapters();
+  }
   else if (k === 'f' || k === 'F') this.toggleFullscreen();
   else return;
   ev.preventDefault();
