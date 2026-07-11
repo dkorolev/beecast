@@ -228,8 +228,9 @@ autoplay) · **c** toggle chapters ·
 
 A chapter jump (`[ ]` / `↑ ↓` / a digit / a panel click) names the chapter it landed
 on in a brief bottom-center toast (`role="status"`, so screen readers announce it too)
-that fades out on its own; `prefers-reduced-motion` drops the fade. The toast matches
-scsh's session-browser pill (padded surface, soft shadow, above the control bar).
+that fades out on its own; `prefers-reduced-motion` drops the fade. The toast — and the
+chapter list rows — use the same card silhouette as scsh's job-graph nodes (left accent
+bar, uppercase state line, bold title, muted meta).
 
 At widths up to 430 px the toolbar compacts and hides the two visually duplicated clock labels; the seek slider retains the complete `current of duration` value for assistive technology, and play, seek, chapters, speed, and fullscreen all remain reachable.
 
