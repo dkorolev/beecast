@@ -68,30 +68,38 @@
 /* Fullscreen: control bar pinned at the bottom (unshrinkable); terminal block
    centers in the free space above via auto margins. Correct scale+height in
    layout() keeps the bar on-screen — previously a too-tall screen box pushed it
-   off under overflow:hidden, taking the speed control with it. */
-.beecast-player:fullscreen {
+   off under overflow:hidden, taking the speed control with it.
+   Also match when an ancestor is the fullscreen element (scsh passes fullscreenEl
+   = the outer .cast box so the live toolbar rides along). */
+.beecast-player:fullscreen,
+:fullscreen .beecast-player {
   width: 100%; height: 100%; border-radius: 0;
   display: flex; flex-direction: column;
   box-sizing: border-box;
+  min-height: 0;
 }
-.beecast-player:fullscreen .sp-screen-box {
+.beecast-player:fullscreen .sp-screen-box,
+:fullscreen .beecast-player .sp-screen-box {
   flex: 0 0 auto;
   width: 100%;
   margin-top: auto;
   margin-bottom: auto;
 }
-.beecast-player:fullscreen .sp-bar {
+.beecast-player:fullscreen .sp-bar,
+:fullscreen .beecast-player .sp-bar {
   flex: 0 0 auto;
   width: 100%;
   margin-top: 0;
   position: relative;
   z-index: 20;
+  box-sizing: border-box;
+  padding-right: 0.35rem; /* keep 1× / ⛶ from kissing the edge after scale */
 }
 .beecast-player [hidden] { display: none !important; }
 
 .sp-screen-box { overflow: hidden; position: relative; }
 
-/* Center play overlay: soft dim + a large monospace `|>` as the play icon. */
+/* Center play overlay: soft dim + a geometric `|>` (SVG bar + chevron, equal height). */
 .sp-overlay {
   position: absolute; inset: 0; z-index: 3;
   display: flex; align-items: center; justify-content: center;
@@ -104,15 +112,21 @@
 }
 .sp-bigplay {
   margin: 0;
-  font: 700 7rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: -0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 7rem;
+  height: 7rem;
   color: #fff;
   opacity: 0.92;
-  text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.9),
-    0 4px 18px rgba(0, 0, 0, 0.65);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 4px 18px rgba(0, 0, 0, 0.65));
   transition: opacity 0.15s, transform 0.15s;
   user-select: none;
+}
+.sp-bigplay-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .sp-overlay:hover .sp-bigplay,
 .sp-overlay:focus-visible .sp-bigplay {
