@@ -276,8 +276,9 @@
   transform-origin: top left;
   width: max-content;
 }
-/* Styled runs as inline-blocks so a run's background paints the full 1.25 line box. */
-.sp-screen span { display: inline-block; }
+/* Styled runs fill one complete terminal row. Top alignment removes the baseline
+   leading that otherwise becomes a dark horizontal seam at fractional fit scales. */
+.sp-screen span { display: inline-block; vertical-align: top; }
 .sp-probe { visibility: hidden; position: absolute; }
 .sp-b { font-weight: 700; }
 .sp-d { opacity: 0.6; }

@@ -272,7 +272,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
     .replace(env!("CARGO_PKG_VERSION"), "<version>")
     .into_bytes();
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (115080, 0x12c8ea3982dff7cc, 114870, 0xa6f4a2ca7add827d), "the generated page's bytes moved");
+  assert_eq!(got, (115181, 0xece67cd9180e2615, 114971, 0x7cd359761b821e38), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
