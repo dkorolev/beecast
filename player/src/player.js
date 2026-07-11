@@ -327,6 +327,7 @@ Player.prototype.buildDom = function (mount, cfg) {
     '<div class="sp-overlay" part="overlay" hidden role="button" tabindex="0" ' +
     'aria-label="Play recording"><span class="sp-bigplay" aria-hidden="true">' + BIG_PLAY + '</span></div>' +
     '<div class="sp-chapters" part="chapter-panel" role="menu" hidden></div>' +
+    '<div class="sp-toast" part="toast" role="status"></div>' +
     '</div>' + bar;
 
   mount.appendChild(root);
@@ -346,6 +347,7 @@ Player.prototype.buildDom = function (mount, cfg) {
   this.fsBtn = root.querySelector('.sp-fs');
   this.overlayEl = root.querySelector('.sp-overlay');
   this.marksEl = root.querySelector('.sp-markers');
+  this.toastEl = root.querySelector('.sp-toast');
 
   if (this.playBtn) {
     this.playBtn.addEventListener('click', function () { self.toggle('pointer'); });
@@ -635,8 +637,8 @@ Player.prototype.onKey = function (ev) {
   else if (k === 'ArrowRight') this.seek(this.getCurrentTime() + SEEK_STEP_SECS, 'keyboard');
   else if (k === '<' || k === ',') this.controller.cycleSpeed(-1, 'keyboard');
   else if (k === '>' || k === '.') this.controller.cycleSpeed(1, 'keyboard');
-  else if (k === '[') this.controller.jumpMarker(-1, 'keyboard');
-  else if (k === ']') this.controller.jumpMarker(1, 'keyboard');
+  else if (k === '[') this.chapterToast(this.controller.jumpMarker(-1, 'keyboard'));
+  else if (k === ']') this.chapterToast(this.controller.jumpMarker(1, 'keyboard'));
   else if (k === 'c' || k === 'C') this.toggleChapters();
   else if (k === 'f' || k === 'F') this.toggleFullscreen();
   else return;
@@ -743,6 +745,35 @@ Player.prototype.toggleFullscreen = function () {
   }
 };
 
+// A [ / ] jump names the chapter it landed on in a brief bottom-center toast that fades on
+// its own; role="status" lets screen readers announce the same text.
+Player.prototype.chapterToast = function (target) {
+  if (!target || !this.toastEl) return;
+  const markers = this.controller.getState().markers;
+  let index = -1;
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i].time === target.time) { index = i; break; }
+  }
+  const landed = index >= 0 ? markers[index] : target;
+  const name = landed.label || fmtClock(landed.time);
+  this.showToast(index >= 0 ? (index + 1) + '/' + markers.length + ' · ' + name : name);
+};
+
+Player.prototype.showToast = function (text) {
+  const el = this.toastEl;
+  if (!el) return;
+  const self = this;
+  el.textContent = text;
+  el.classList.remove('sp-toast-show');
+  // Retrigger the transition when the same chapter fires twice in a row.
+  void el.offsetWidth;
+  el.classList.add('sp-toast-show');
+  clearTimeout(this.toastTimer);
+  this.toastTimer = setTimeout(function () {
+    if (self.toastEl) self.toastEl.classList.remove('sp-toast-show');
+  }, 2000);
+};
+
 Player.prototype.play = function (origin) { this.controller.play(origin); };
 Player.prototype.pause = function (origin) { this.controller.pause(origin); };
 Player.prototype.toggle = function (origin) { this.controller.toggle(origin); };
@@ -760,6 +791,7 @@ Player.prototype.dispose = function () {
   if (this.disposed) return;
   this.disposed = true;
   if (this.unsubscribe) { this.unsubscribe(); this.unsubscribe = null; }
+  clearTimeout(this.toastTimer);
   this.controller.dispose();
   if (this.speedAway) { document.removeEventListener('click', this.speedAway); this.speedAway = null; }
   if (this.resizeObs) { try { this.resizeObs.disconnect(); } catch (_) {} this.resizeObs = null; }

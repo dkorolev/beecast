@@ -444,8 +444,10 @@ Controller.prototype.cycleSpeed = function (dir, origin) {
   this.setSpeed(next, origin);
 };
 
+// Returns the seek target so the UI can name it: the marker jumped to, a synthetic
+// `{ time: 0, label: '' }` when [ falls back to the start, or null when nothing moved.
 Controller.prototype.jumpMarker = function (dir, origin) {
-  if (!this.markers.length) return;
+  if (!this.markers.length) return null;
   const now = this.getCurrentTime();
   let target = null;
   if (dir > 0) {
@@ -458,11 +460,12 @@ Controller.prototype.jumpMarker = function (dir, origin) {
     }
     if (target == null) {
       this.seek(0, { origin: origin || 'marker' });
-      return;
+      return { time: 0, label: '' };
     }
   }
   // Seek only — leave playing/paused alone. [ ] / chapter jumps must not autoplay.
   if (target != null) this.seek(target.time, { origin: origin || 'marker' });
+  return target;
 };
 
 // Live-follow append (v2/v3). Same positional tail -f policy as before.

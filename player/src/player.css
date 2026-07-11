@@ -137,6 +137,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .beecast-player.arrival-flash { animation: none; outline: 2px solid var(--beecast-color-accent); }
+  .sp-toast { transition: none; }
   .sp-bigplay { transition: none; }
   .sp-overlay:hover .sp-bigplay,
   .sp-overlay:focus-visible .sp-bigplay { transform: none; }
@@ -181,6 +182,23 @@
 }
 .sp-chap-ann { font-style: italic; opacity: 0.95; }
 .sp-chap-t { color: var(--sp-c4); margin-right: 8px; font-variant-numeric: tabular-nums; }
+
+/* Bottom-center disappearing toast: a [ / ] chapter jump names the chapter it landed on.
+   Sits just above the control bar, never takes the pointer, and fades out on its own. */
+.sp-toast {
+  position: absolute; left: 50%; bottom: 10px; z-index: 5;
+  transform: translate(-50%, 4px);
+  max-width: calc(100% - 24px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 12px; border-radius: 6px;
+  background: rgba(9, 11, 15, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--sp-fg);
+  font: 12px/1.45 ui-sans-serif, system-ui, sans-serif;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.sp-toast-show { opacity: 1; transform: translate(-50%, 0); }
 
 .sp-screen {
   margin: 0;
