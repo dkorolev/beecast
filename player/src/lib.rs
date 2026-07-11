@@ -92,6 +92,14 @@ mod tests {
       PLAYER_JS.contains("mount && mount.clientHeight > 0") && PLAYER_JS.contains("wrapFs"),
       "wrap-fullscreen layout must prefer the mount height over the outer fullscreen host"
     );
+    assert!(
+      PLAYER_JS.contains("sp-stage") && PLAYER_CSS.contains(".sp-stage"),
+      "fullscreen centering lives in a flex stage above the control bar"
+    );
+    assert!(
+      PLAYER_JS.contains("sp-chapters-dock") && PLAYER_JS.contains("canDockChapters"),
+      "tall mounts dock chapters beside the terminal"
+    );
   }
 
   /// Phase 0: the public surface must not shrink without an intentional change.

@@ -318,7 +318,11 @@ Player.prototype.buildDom = function (mount, cfg) {
     bar += '</div>';
   }
 
+  // Stage wraps the terminal + chapter panel so fullscreen can center the pair above
+  // the control bar (without margin-auto gaps between the terminal and the bar), and
+  // so a tall/wide mount can dock chapters beside the terminal instead of overlaying it.
   root.innerHTML =
+    '<div class="sp-stage" part="stage">' +
     '<div class="sp-screen-box" part="screen-box">' +
     '<pre class="sp-screen" part="screen" aria-hidden="true"></pre>' +
     (this.accessibility === 'snapshot'
@@ -326,12 +330,14 @@ Player.prototype.buildDom = function (mount, cfg) {
       : '') +
     '<div class="sp-overlay" part="overlay" hidden role="button" tabindex="0" ' +
     'aria-label="Play recording"><span class="sp-bigplay" aria-hidden="true">' + BIG_PLAY + '</span></div>' +
-    '<div class="sp-chapters" part="chapter-panel" role="menu" hidden></div>' +
     '<div class="sp-toast" part="toast" role="status"></div>' +
+    '</div>' +
+    '<div class="sp-chapters" part="chapter-panel" role="menu" hidden></div>' +
     '</div>' + bar;
 
   mount.appendChild(root);
   this.root = root;
+  this.stageEl = root.querySelector('.sp-stage');
   this.screenEl = root.querySelector('.sp-screen');
   this.a11yEl = root.querySelector('.sp-a11y');
   this.playBtn = root.querySelector('.sp-play');
@@ -348,6 +354,8 @@ Player.prototype.buildDom = function (mount, cfg) {
   this.overlayEl = root.querySelector('.sp-overlay');
   this.marksEl = root.querySelector('.sp-markers');
   this.toastEl = root.querySelector('.sp-toast');
+  this._chaptersUserClosed = false;
+  this._chaptersAutoOpened = false;
 
   if (this.playBtn) {
     this.playBtn.addEventListener('click', function () { self.toggle('pointer'); });
@@ -424,7 +432,7 @@ Player.prototype.buildDom = function (mount, cfg) {
   this.keyHandler = function (ev) { self.onKey(ev); };
   root.addEventListener('keydown', this.keyHandler);
   root.addEventListener('click', function (ev) {
-    if (ev.target !== root && !ev.target.closest('.sp-screen-box')) return;
+    if (ev.target !== root && !ev.target.closest('.sp-stage')) return;
     try { root.focus({ preventScroll: true }); } catch (_) { root.focus(); }
   });
 };
@@ -485,8 +493,9 @@ Player.prototype.layoutMarkers = function (state) {
   }
 };
 
-Player.prototype.toggleChapters = function (force) {
+Player.prototype.toggleChapters = function (force, opts) {
   if (!this.chaptersEl) return;
+  opts = opts || {};
   // Explicit toggle: open when hidden, close when visible — `c` must close as well as open.
   const show = force != null ? !!force : !!this.chaptersEl.hidden;
   // Focus must be checked BEFORE hiding: hiding the focused row silently moves
@@ -498,11 +507,23 @@ Player.prototype.toggleChapters = function (force) {
   if (show) {
     this._chaptersRenderKey = null;
     this.renderChapters(this.controller.getState());
-    const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
-    if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
-  }
-  else if (hadFocus && this.chapBtn) {
-    try { this.chapBtn.focus({ preventScroll: true }); } catch (_) {}
+    if (opts.auto) this._chaptersAutoOpened = true;
+    else {
+      this._chaptersUserClosed = false;
+      this._chaptersAutoOpened = false;
+    }
+    if (!opts.silent) {
+      const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
+      if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
+    }
+  } else {
+    if (!opts.auto) {
+      this._chaptersUserClosed = true;
+      this._chaptersAutoOpened = false;
+    }
+    if (hadFocus && this.chapBtn) {
+      try { this.chapBtn.focus({ preventScroll: true }); } catch (_) {}
+    }
   }
 };
 
@@ -553,7 +574,8 @@ Player.prototype.renderChapters = function (state) {
         // Seek only — chapter picks must not start playback (same as [ ] / ←→).
         self.seek(marker.time, 'marker');
         self.chapterToast(marker);
-        self.toggleChapters(false);
+        // Overlay mode closes after a pick; docked side panel stays open.
+        if (!self.root.classList.contains('sp-chapters-dock')) self.toggleChapters(false);
       };
     })(m));
     this.chaptersEl.appendChild(row);
@@ -573,8 +595,34 @@ Player.prototype.markCurrentChapter = function (state) {
   }
 };
 
+// Dock chapters beside the terminal when the mount is tall and wide enough; otherwise
+// keep the classic right-edge overlay (manual `c` / ☰). Most session-browser and
+// fullscreen layouts clear this bar; phones and short embeds do not.
+Player.prototype.canDockChapters = function () {
+  if (!this.root || !this.chaptersEl || !this.controlsCfg.chapters) return false;
+  const markers = this.controller.getState().markers;
+  if (!markers || !markers.length) return false;
+  return this.root.clientHeight >= 420 && this.root.clientWidth >= 640;
+};
+
+Player.prototype.syncChaptersLayout = function () {
+  if (!this.root || !this.chaptersEl) return;
+  const dock = this.canDockChapters();
+  const wasDock = this.root.classList.contains('sp-chapters-dock');
+  this.root.classList.toggle('sp-chapters-dock', dock);
+  if (dock) {
+    if (!this._chaptersUserClosed && this.chaptersEl.hidden) {
+      this.toggleChapters(true, { silent: true, auto: true });
+    }
+  } else if (wasDock && this._chaptersAutoOpened && !this.chaptersEl.hidden) {
+    this.toggleChapters(false, { auto: true });
+    this._chaptersAutoOpened = false;
+  }
+};
+
 Player.prototype.syncChaptersUi = function (state) {
   if (this.chapBtn) this.chapBtn.hidden = !(state.markers && state.markers.length);
+  this.syncChaptersLayout();
   if (!this.chaptersEl || this.chaptersEl.hidden) return;
   // Rebuilding the list on every playback tick destroys the buttons mid-click — only
   // rebuild when the marker set changes; otherwise refresh the current-chapter highlight.
@@ -707,6 +755,7 @@ Player.prototype.layout = function () {
   if (!this.fit || !this.root || this._layouting) return;
   this._layouting = true;
   try {
+    this.syncChaptersLayout();
     const box = this.root.querySelector('.sp-screen-box');
     if (!box || !this.screenEl) return;
     this.screenEl.style.transform = '';
@@ -751,6 +800,12 @@ Player.prototype.layout = function () {
         const mount = this.root.parentNode;
         definite = this.mountHeightIsDefinite(mount, box);
         if (definite) availH = mount.clientHeight - barH;
+      }
+      // Docked chapters sit beside the terminal inside the stage; the height budget is
+      // the stage (root minus bar), same as fullscreen.
+      if (definite && this.root.classList.contains('sp-chapters-dock') && this.stageEl) {
+        const stageH = this.stageEl.clientHeight;
+        if (stageH > 40) availH = stageH;
       }
       if (definite && availH > 40 && naturalH * scale > availH) {
         scale = Math.min(scale, availH / naturalH);

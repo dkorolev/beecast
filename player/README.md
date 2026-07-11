@@ -245,7 +245,14 @@ embedding page gives the mount a *definite* height (`%`, `vh`, flex/grid stretch
 fullscreen). A content-sized mount (height comes from the player itself) is width-only:
 vertical fit against a height the player controls is a `ResizeObserver` shrink ratchet.
 Whenever the terminal (scaled or not) ends up narrower than its pane, it is centered
-horizontally.
+horizontally. With a definite mount height (generated pages, fullscreen), the control bar
+stays pinned to the bottom of the player and the terminal is vertically centered in the
+stage above it.
+
+**Chapters.** On tall, wide mounts (about 420×640 and up — typical fullscreen and
+session-browser panes) the chapter list docks beside the terminal and opens on its own;
+`c` still toggles it closed. On shorter or narrower mounts it stays the classic right-edge
+overlay opened with ☰ / `c`.
 
 **The big play button.** Whenever playback is not running — at the start, paused
 mid-recording, or ended — a large `|>` dims the screen behind it; one click starts (or
