@@ -50,6 +50,28 @@ for (const transport of ['file', 'http']) {
 }
 
 test.describe('human-facing behavior', () => {
+  test('chapter controls stay absent and c is a no-op without chapters', async ({ page }) => {
+    await page.goto(fileUrl());
+    await page.evaluate(() => {
+      const mount = document.createElement('div');
+      mount.id = 'empty-chapter-player';
+      document.body.appendChild(mount);
+      BeeCastPlayer.create({ data: '{"version":3,"term":{"cols":10,"rows":3}}\n[0.1,"o","hello"]\n' }, mount, {
+        controls: true,
+        markers: [],
+      });
+    });
+    const player = page.locator('#empty-chapter-player .beecast-player');
+    const button = player.locator('.sp-chapbtn');
+    const panel = player.locator('.sp-chapters');
+    await expect(button).toBeHidden();
+    await expect(panel).toBeHidden();
+    await player.focus();
+    await page.keyboard.press('c');
+    await expect(panel).toBeHidden();
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
   test('all player controls remain reachable at phone width', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto(fileUrl());

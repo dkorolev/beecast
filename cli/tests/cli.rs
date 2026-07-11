@@ -254,7 +254,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// minor bump, then the paused-state play overlay and seek-only marker/chapter jumps, then the 0.9.1 footer stamp, then the play overlay became a large monospace |>, then the 0.9.2 footer stamp, then the play overlay became an equal-height SVG |>, wrap-fullscreen measured the mount (not the outer host), and the 0.9.3 footer stamp, then the player gained a toolbar ● Live control (and create-time `live`) with the overlay suppressed while following, the 0.9.4 footer stamp, then catch-up playback started returning to Live at the appended edge, and the 0.9.5 footer stamp,   then the hardening pass (pointer-capture seeking, `role="region"`, the compact narrow toolbar), then `[` `]` chapter jumps gained a disappearing bottom toast naming the chapter,   then chapter UX polish (scsh-matching toast, stable clickable chapter rows, `c` toggle close, ↑/↓ and digit 0–9 jumps),   then fullscreen stage centering and auto-docked chapters on tall mounts, then chapter toast/rows adopted the scsh job-graph card silhouette, then fullscreen layout learned to cap its width budget at the fullscreen host (an overflowing host pane no longer skips the horizontal scale or centers off-screen). When
 /// the template or player changes *intentionally*, re-pin using the lengths and fingerprints
 /// this assertion prints. The footer's workspace version is normalized so a manifest-only
-/// release commit does not require an unrelated fingerprint change.
+/// release commit does not require an unrelated fingerprint change. Finally, empty chapter
+/// sets stopped advertising or responding to the `c` menu toggle.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -271,7 +272,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
     .replace(env!("CARGO_PKG_VERSION"), "<version>")
     .into_bytes();
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (114558, 0xf595ceb4642530e3, 114348, 0x15fdfe4527d6ca86), "the generated page's bytes moved");
+  assert_eq!(got, (115080, 0x12c8ea3982dff7cc, 114870, 0xa6f4a2ca7add827d), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file
