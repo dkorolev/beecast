@@ -187,6 +187,20 @@ class ExtractJson(unittest.TestCase):
             seecast.extract_json('{"title": "", "title": "ok"}')
 
 
+class AtomicWrite(unittest.TestCase):
+    def test_failed_replace_preserves_the_previous_complete_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "recording.meta.json")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("old complete file\n")
+            with unittest.mock.patch.object(seecast.os, "replace", side_effect=OSError("simulated replace failure")):
+                with self.assertRaises(OSError):
+                    seecast.atomic_write_text(path, "new complete file\n")
+            with open(path, encoding="utf-8") as f:
+                self.assertEqual(f.read(), "old complete file\n")
+            self.assertEqual(os.listdir(tmp), ["recording.meta.json"], "temporary file is cleaned up")
+
+
 class Annotate(unittest.TestCase):
     def test_stubbed_run_produces_validated_meta(self):
         prompts = []

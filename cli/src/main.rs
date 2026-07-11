@@ -298,7 +298,7 @@ fn run_build(args: BuildArgs, machine: bool) -> anyhow::Result<()> {
     return Ok(());
   }
   let out_path = args.output.unwrap_or_else(|| args.cast.with_extension("html"));
-  std::fs::write(&out_path, &html).with_context(|| format!("cannot write `{}`", out_path.display()))?;
+  atomic_write(&out_path, html.as_bytes()).with_context(|| format!("cannot write `{}`", out_path.display()))?;
   if machine {
     emit(&format!(
       "{}\n",
@@ -339,6 +339,19 @@ fn load_meta(args: &BuildArgs) -> anyhow::Result<(beecast_dto::CastMeta, Option<
   let json = std::fs::read_to_string(&path).with_context(|| format!("cannot read metadata `{}`", path.display()))?;
   let parsed = beecast_dto::parse(&json).with_context(|| format!("invalid metadata in `{}`", path.display()))?;
   Ok((parsed, Some(path)))
+}
+
+/// Replace a user-facing artifact atomically: a failed or interrupted write leaves the
+/// previous complete file in place, and a new file becomes visible only after all bytes
+/// have reached the temporary file. The temporary lives beside the destination so the
+/// final persist cannot cross filesystem boundaries.
+fn atomic_write(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+  let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+  let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+  tmp.write_all(bytes)?;
+  tmp.as_file().sync_all()?;
+  tmp.persist(path).map_err(|e| e.error)?;
+  Ok(())
 }
 
 /// Write `s` to stdout, treating a broken pipe as a clean exit rather than a panic (§2:

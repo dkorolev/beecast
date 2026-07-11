@@ -169,6 +169,24 @@ def extract_json(reply):
     return json.loads(reply[start : end + 1], object_pairs_hook=reject_duplicate_keys)
 
 
+def atomic_write_text(path, text):
+    """Replace `path` only after a complete, flushed sibling temporary is ready."""
+    parent = os.path.dirname(os.path.abspath(path))
+    fd, tmp_path = tempfile.mkstemp(prefix=".seecast-", suffix=".tmp", dir=parent, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def validate_meta(obj, generated=False, require_all=False):
     """Validate `obj` against the cast-metadata schema and return it normalized.
 
@@ -465,8 +483,7 @@ def main(argv=None):
         return
     out_path = args.output or os.path.splitext(args.cast)[0] + ".meta.json"
     try:
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(sidecar_json)
+        atomic_write_text(out_path, sidecar_json)
     except OSError as e:
         # An unwritable path must be the contract error, not a traceback — especially
         # here, after the paid annotation has already succeeded.

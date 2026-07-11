@@ -65,6 +65,8 @@
 }
 
 .beecast-player:focus-visible { box-shadow: 0 0 0 2px var(--beecast-color-focus); }
+.beecast-player.arrival-flash { animation: beecast-arrival 900ms ease-out; }
+@keyframes beecast-arrival { from { box-shadow: 0 0 0 3px var(--beecast-color-focus); } to { box-shadow: none; } }
 /* Fullscreen: control bar pinned at the bottom (unshrinkable); terminal block
    centers in the free space above via auto margins. Correct scale+height in
    layout() keeps the bar on-screen — previously a too-tall screen box pushed it
@@ -134,6 +136,7 @@
   transform: scale(1.06);
 }
 @media (prefers-reduced-motion: reduce) {
+  .beecast-player.arrival-flash { animation: none; outline: 2px solid var(--beecast-color-accent); }
   .sp-bigplay { transition: none; }
   .sp-overlay:hover .sp-bigplay,
   .sp-overlay:focus-visible .sp-bigplay { transform: none; }
@@ -298,6 +301,7 @@
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
+  touch-action: none;
 }
 .sp-seek:focus-visible {
   outline: 2px solid var(--beecast-color-accent);
@@ -330,4 +334,13 @@ beecast-player {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Keep every primary action reachable on narrow phones. Time remains available to
+   assistive technology through the seek slider's aria-valuetext. */
+@media (max-width: 430px) {
+  .sp-bar { gap: 4px; padding: 6px; }
+  .sp-bar button { padding-left: 8px; padding-right: 8px; }
+  .sp-time, .sp-dur { display: none; }
+  .sp-seek { min-width: 40px; }
 }

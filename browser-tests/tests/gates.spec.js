@@ -48,3 +48,53 @@ for (const transport of ['file', 'http']) {
     });
   });
 }
+
+test.describe('human-facing behavior', () => {
+  test('all player controls remain reachable at phone width', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto(fileUrl());
+    const player = page.locator('.beecast-player');
+    const bounds = await player.boundingBox();
+    for (const control of ['.sp-play', '.sp-seek', '.sp-chapbtn', '.sp-speed', '.sp-fs']) {
+      const box = await page.locator(control).boundingBox();
+      expect(box, `${control} is visible`).not.toBeNull();
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+    }
+  });
+
+  test('pointer seeking works for touch and pen as well as mouse', async ({ page }) => {
+    await page.goto(fileUrl());
+    const seek = page.locator('.sp-seek');
+    const box = await seek.boundingBox();
+    await seek.dispatchEvent('pointerdown', {
+      pointerId: 7, pointerType: 'touch', button: 0,
+      clientX: box.x + box.width * 0.75, clientY: box.y + box.height / 2,
+    });
+    const value = Number(await seek.getAttribute('aria-valuenow'));
+    const max = Number(await seek.getAttribute('aria-valuemax'));
+    expect(value).toBeGreaterThan(max * 0.5);
+  });
+
+  test('chapter navigation creates and restores a focused history entry', async ({ page }) => {
+    await page.goto(fileUrl());
+    await page.locator('.sp-chapbtn').click();
+    await page.locator('.sp-chap').nth(1).click();
+    expect(new URL(page.url()).searchParams.has('t')).toBe(true);
+    await page.goBack();
+    await expect(page.locator('.beecast-player')).toBeFocused();
+    expect(Number(await page.locator('.sp-seek').getAttribute('aria-valuenow'))).toBe(0);
+  });
+
+  test('menus move focus with arrows and return it with Escape', async ({ page }) => {
+    await page.goto(fileUrl());
+    const speed = page.locator('.sp-speed');
+    await speed.click();
+    await expect(page.locator('.sp-speedopt.sp-on')).toBeFocused();
+    const before = await page.locator(':focus').textContent();
+    await page.keyboard.press('ArrowDown');
+    expect(await page.locator(':focus').textContent()).not.toBe(before);
+    await page.keyboard.press('Escape');
+    await expect(speed).toBeFocused();
+  });
+});

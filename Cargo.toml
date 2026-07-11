@@ -19,6 +19,7 @@ serde_json = "1"
 thiserror = "2"
 schemars = "1"
 anyhow = "1"
+tempfile = "3"
 beecast-dto = { path = "dto", version = "0.9.5" }
 beecast-player = { path = "player", version = "0.9.5" }
 beecast-page = { path = "page", version = "0.9.5" }

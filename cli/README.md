@@ -22,6 +22,8 @@ open demo.html                     # play it — fully offline
 
   Deep links use **URL query parameters**, not fragments or server routes, so they keep working when the file is opened locally. The page has a *copy link at current time* button with an optional comment field; the linked-to comment is shown as a banner and the player is parked (poster frame) at the linked timestamp.
 
+  The generated page follows the same Back/Forward convention as packdiff: direct timeline or keyboard seeking updates the current history entry, while choosing a named chapter creates a history entry. Back and Forward restore the recording time, focus the player, and show a brief layout-neutral arrival cue. Ordinary playback never writes history. History updates are best-effort because some opaque `file://` embeddings forbid them; playback and copying still work there.
+
 ## The metadata sidecar
 
 Playback works with the bare `.cast` alone. To get a title, a summary, and chapters, put a JSON sidecar next to the recording — `demo.cast` → `demo.meta.json` — or point at any file with `--meta`. The shape is defined by the [`beecast-dto`](../dto) crate (the source of truth); its human rendering is [`dto/SCHEMA.md`](../dto/SCHEMA.md) and the formal schema is [`dto/schema/beecast-meta.schema.json`](../dto/schema/beecast-meta.schema.json):
@@ -57,6 +59,7 @@ beecast version
 - Exit codes: `0` success, `1` failure, `2` usage, `130` interrupted. `beecast help exitcodes` prints the table; a broken pipe ends the program quietly.
 - Color at a TTY by default; `--color=never`, `--color=no`, or `NO_COLOR` turn it off.
 - `beecast schema` is also the codegen script: it prints the schema generated from the `beecast-dto` Rust types, which a test in that crate pins byte-for-byte to the shipped file.
+- File output is atomic: beecast finishes and flushes a temporary file beside the destination before replacing it, so a failed or interrupted build does not expose a partial page or destroy the previous complete one. `-o -` remains a stream and therefore cannot offer that filesystem guarantee.
 
 ## Not this tool's job
 

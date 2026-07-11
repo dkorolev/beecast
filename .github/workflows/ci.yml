@@ -7,11 +7,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --release -- -D warnings
       - run: cargo test --workspace
       - run: cargo test --workspace --release
       - run: python3 -m unittest discover -s seecast/tests -v
+      - run: python3 -m unittest discover -s .github -p 'test_*.py' -v
+      - name: Verify the release commit and version ladder
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # The checkout is GitHub's synthetic merge commit; the gate must inspect the
+          # PR head, so pass it explicitly (reachable as the merge commit's parent).
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/check-release.py "$BASE_SHA" "$HEAD_SHA"
       # Packaging (the dry run of publishing) must be warning-free. Cargo's transient
       # "spurious network error" retry warnings from the index fetch are not packaging
       # warnings — filter them out before the gate, or a network hiccup fails the build.
