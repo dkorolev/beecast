@@ -77,6 +77,8 @@ test.describe('human-facing behavior', () => {
   });
 
   test('chapter navigation creates and restores a focused history entry', async ({ page }) => {
+    // Narrow enough that chapters stay an opt-in overlay (not auto-docked).
+    await page.setViewportSize({ width: 520, height: 700 });
     await page.goto(fileUrl());
     await page.locator('.sp-chapbtn').click();
     await page.locator('.sp-chap').nth(1).click();
@@ -98,8 +100,11 @@ test.describe('human-facing behavior', () => {
   });
 
   test('digit and arrow keys jump chapters; c toggles the panel', async ({ page }) => {
+    // Overlay mode: chapters start hidden and close after a row click.
+    await page.setViewportSize({ width: 520, height: 700 });
     await page.goto(fileUrl());
     const player = page.locator('.beecast-player');
+    await expect(player).not.toHaveClass(/sp-chapters-dock/);
     await player.focus();
     await page.keyboard.press('c');
     const panel = page.locator('.sp-chapters');
@@ -118,6 +123,40 @@ test.describe('human-facing behavior', () => {
     expect(await page.locator('.sp-toast').textContent()).toMatch(/^1\/\d+ · ./);
     await page.keyboard.press('ArrowDown');
     expect(await page.locator('.sp-toast').textContent()).toMatch(/^2\/\d+ · ./);
+  });
+
+  test('tall mounts dock chapters beside the terminal', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 720 });
+    await page.goto(fileUrl());
+    const player = page.locator('.beecast-player');
+    await expect(player).toHaveClass(/sp-chapters-dock/);
+    const panel = page.locator('.sp-chapters');
+    await expect(panel).toBeVisible();
+    await panel.locator('.sp-chap').nth(1).click();
+    // Docked picks keep the list open.
+    await expect(panel).toBeVisible();
+    await player.focus();
+    await page.keyboard.press('c');
+    await expect(panel).toBeHidden();
+  });
+
+  test('definite-height mounts pin the bar at the bottom and center the terminal', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 720 });
+    await page.goto(fileUrl());
+    const geom = await page.evaluate(() => {
+      const player = document.querySelector('.beecast-player').getBoundingClientRect();
+      const bar = document.querySelector('.sp-bar').getBoundingClientRect();
+      const box = document.querySelector('.sp-screen-box').getBoundingClientRect();
+      const stage = document.querySelector('.sp-stage').getBoundingClientRect();
+      return { player, bar, box, stage };
+    });
+    // Control bar hugs the bottom of the player (no interstitial gap below the terminal).
+    expect(Math.abs((geom.bar.y + geom.bar.height) - (geom.player.y + geom.player.height))).toBeLessThan(2);
+    expect(geom.bar.y).toBeGreaterThan(geom.box.y + geom.box.height - 1);
+    // Terminal is vertically centered in the stage (above the bar).
+    const stageMid = geom.stage.y + geom.stage.height / 2;
+    const boxMid = geom.box.y + geom.box.height / 2;
+    expect(Math.abs(boxMid - stageMid)).toBeLessThan(24);
   });
 
   test('menus move focus with arrows and return it with Escape', async ({ page }) => {

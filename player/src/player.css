@@ -27,7 +27,10 @@
   --sp-c8: #596273; --sp-c9: #ff8188; --sp-c10: #98d989; --sp-c11: #f0d182;
   --sp-c12: #8fb7ff; --sp-c13: #d99df0; --sp-c14: #7fd6df; --sp-c15: #eef1f5;
 
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
   background: var(--sp-bg);
   color: var(--sp-fg);
   border-radius: var(--beecast-radius);
@@ -67,31 +70,30 @@
 .beecast-player:focus-visible { box-shadow: 0 0 0 2px var(--beecast-color-focus); }
 .beecast-player.arrival-flash { animation: beecast-arrival 900ms ease-out; }
 @keyframes beecast-arrival { from { box-shadow: 0 0 0 3px var(--beecast-color-focus); } to { box-shadow: none; } }
-/* Fullscreen: control bar pinned at the bottom (unshrinkable); terminal block
-   centers in the free space above via auto margins. Correct scale+height in
-   layout() keeps the bar on-screen — previously a too-tall screen box pushed it
-   off under overflow:hidden, taking the speed control with it.
-   Also match when an ancestor is the fullscreen element (scsh passes fullscreenEl
-   = the outer .cast box so the live toolbar rides along). */
+
+/* Stage grows into leftover height; bar stays at the bottom. Content-sized mounts still
+   size to the terminal (flex:1 with an indefinite parent collapses to content). */
+.sp-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Fullscreen (and wrap-fullscreen when scsh fullscreens the outer .cast): fill the
+   viewport, center the terminal in the stage, pin the control bar at the bottom —
+   no margin-auto gap between the terminal and the bar. */
 .beecast-player:fullscreen,
 :fullscreen .beecast-player {
   width: 100%; height: 100%; border-radius: 0;
-  display: flex; flex-direction: column;
-  box-sizing: border-box;
-  min-height: 0;
-}
-.beecast-player:fullscreen .sp-screen-box,
-:fullscreen .beecast-player .sp-screen-box {
-  flex: 0 0 auto;
-  width: 100%;
-  margin-top: auto;
-  margin-bottom: auto;
 }
 .beecast-player:fullscreen .sp-bar,
 :fullscreen .beecast-player .sp-bar {
-  flex: 0 0 auto;
-  width: 100%;
-  margin-top: 0;
   position: relative;
   z-index: 20;
   box-sizing: border-box;
@@ -99,7 +101,7 @@
 }
 .beecast-player [hidden] { display: none !important; }
 
-.sp-screen-box { overflow: hidden; position: relative; }
+.sp-screen-box { overflow: hidden; position: relative; flex: 0 0 auto; }
 
 /* Center play overlay: soft dim + a geometric `|>` (SVG bar + chevron, equal height). */
 .sp-overlay {
@@ -164,6 +166,26 @@
   padding: 4px 0;
   pointer-events: auto;
 }
+/* Tall + wide mounts (and fullscreen): dock chapters beside the terminal instead of
+   overlaying it. The list stretches full stage height; the terminal stays centered. */
+.beecast-player.sp-chapters-dock .sp-stage {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.beecast-player.sp-chapters-dock .sp-screen-box {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.beecast-player.sp-chapters-dock .sp-chapters {
+  position: static;
+  flex: 0 0 min(280px, 32%);
+  width: min(280px, 32%);
+  max-width: 320px;
+  align-self: stretch;
+  z-index: 1;
+}
 .sp-chap {
   display: block; width: 100%; text-align: left;
   font: inherit; color: var(--sp-fg);
@@ -226,8 +248,10 @@
 .sp-bar {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 10px;
+  width: 100%;
   min-height: var(--beecast-control-height);
   padding: 10px 12px;
   background: var(--beecast-color-surface-raised);
