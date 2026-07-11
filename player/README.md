@@ -203,9 +203,13 @@ controls: true | false | {
   speed: true,
   chapters: true,
   fullscreen: true,
+  live: false,   // ● Live in the toolbar; pair with top-level `live: true` to start following
 }
 ```
 
+`live: true` (top-level create option) enters declared-live mode at mount — playhead at the
+growing edge, no center play overlay. Seeking back (or `play()`) leaves live; the toolbar
+**● Live** button returns to the edge.
 ## Accessibility
 
 - Icon-only controls expose accessible names (`aria-label`) independent of `title`.
@@ -235,8 +239,10 @@ Whenever the terminal (scaled or not) ends up narrower than its pane, it is cent
 horizontally.
 
 **The big play button.** Whenever playback is not running — at the start, paused
-mid-recording, or ended — a large monospace `|>` dims the screen behind it; one click
-starts (or resumes) playback.
+mid-recording, or ended — a large `|>` dims the screen behind it; one click starts (or
+resumes) playback. **Exception:** in declared-live mode the overlay stays hidden (live is
+following, not paused-for-replay); use the toolbar **● Live** control to re-enter live after
+seeking back.
 
 **Live-follow.** Feed each new chunk of v2/v3 NDJSON to `append(text)`. Chunk boundaries
 are free; partial trailing lines buffer until complete. A playhead at the live edge stays
@@ -247,9 +253,11 @@ is a no-op.
 embedder that KNOWS the recording is still being produced: the playhead parks at the
 growing edge — every append renders immediately, pinned unconditionally — and the seek
 bar renders full-width in the live color (`--beecast-color-live`), reading as "now"
-rather than a position that jitters as the duration grows. Any explicit rewind — a seek
-before the edge, or `play()` (which would replay from the top) — drops live mode with a
-`livechange` event (`beecast-livechange` on the element); `getState().live` reports it.
+rather than a position that jitters as the duration grows. Create with `live: true` and
+`controls: { live: true }` to start following and expose the toolbar control. Any explicit
+rewind — a seek before the edge, or `play()` (which would replay from the top) — drops
+live mode with a `livechange` event (`beecast-livechange` on the element); `getState().live`
+reports it. The center play overlay is suppressed while live.
 
 The core half is exposed on `BeeCastVT` for embedders that need it without a mounted player.
 

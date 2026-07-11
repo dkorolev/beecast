@@ -234,6 +234,16 @@
   outline-offset: 1px;
 }
 .sp-play { font-size: 18px; padding: 8px 14px; min-width: 40px; }
+.sp-live {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--beecast-color-text-muted);
+}
+.sp-live.on {
+  color: var(--beecast-color-live);
+  background: rgba(120, 189, 101, 0.12);
+}
+.sp-live.on:hover { color: var(--beecast-color-live); background: rgba(120, 189, 101, 0.18); }
 
 .sp-speedwrap {
   position: relative;

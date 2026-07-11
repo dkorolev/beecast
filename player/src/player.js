@@ -87,9 +87,9 @@ function fmtClock(secs) {
 
 function parseControls(controls) {
   if (controls === false) {
-    return { play: false, seek: false, time: false, speed: false, chapters: false, fullscreen: false };
+    return { play: false, seek: false, time: false, speed: false, chapters: false, fullscreen: false, live: false };
   }
-  const d = { play: true, seek: true, time: true, speed: true, chapters: true, fullscreen: true };
+  const d = { play: true, seek: true, time: true, speed: true, chapters: true, fullscreen: true, live: false };
   if (controls && typeof controls === 'object') {
     for (const k of Object.keys(d)) {
       if (controls[k] != null) d[k] = !!controls[k];
@@ -160,6 +160,8 @@ function Player(src, mount, opts) {
   });
 
   if (opts.autoPlay) this.play();
+  // Declared-live at mount (growing recordings): park at the edge with no play overlay.
+  if (opts.live) this.setLive(true, 'api');
   const self = this;
   if (typeof ResizeObserver !== 'undefined') {
     this.resizeObs = new ResizeObserver(function () {
@@ -281,11 +283,15 @@ Player.prototype.buildDom = function (mount, cfg) {
   root.setAttribute('aria-label', 'Terminal recording player');
 
   let bar = '';
-  if (cfg.play || cfg.seek || cfg.time || cfg.speed || cfg.chapters || cfg.fullscreen) {
+  if (cfg.play || cfg.seek || cfg.time || cfg.speed || cfg.chapters || cfg.fullscreen || cfg.live) {
     bar = '<div class="sp-bar" part="toolbar">';
     if (cfg.play) {
       bar += '<button class="sp-play" type="button" part="play-button" ' +
         'aria-label="Play" title="play/pause (space)">' + ICON_PLAY + '</button>';
+    }
+    if (cfg.live) {
+      bar += '<button class="sp-live" type="button" part="live-button" ' +
+        'aria-label="Go live" aria-pressed="false" title="follow the live edge">● Live</button>';
     }
     if (cfg.time) bar += '<span class="sp-time" part="current-time" aria-hidden="true">0:00</span>';
     if (cfg.seek) {
@@ -328,6 +334,7 @@ Player.prototype.buildDom = function (mount, cfg) {
   this.screenEl = root.querySelector('.sp-screen');
   this.a11yEl = root.querySelector('.sp-a11y');
   this.playBtn = root.querySelector('.sp-play');
+  this.liveBtn = root.querySelector('.sp-live');
   this.timeEl = root.querySelector('.sp-time');
   this.durEl = root.querySelector('.sp-dur');
   this.seekEl = root.querySelector('.sp-seek');
@@ -342,6 +349,14 @@ Player.prototype.buildDom = function (mount, cfg) {
 
   if (this.playBtn) {
     this.playBtn.addEventListener('click', function () { self.toggle('pointer'); });
+  }
+  if (this.liveBtn) {
+    this.liveBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      // Go live (or leave live). Going live parks at the edge — no play(), no overlay.
+      self.setLive(!self.controller.getState().live, 'pointer');
+      try { root.focus({ preventScroll: true }); } catch (_) { root.focus(); }
+    });
   }
   if (this.overlayEl) {
     const playFromOverlay = function (ev) {
@@ -409,7 +424,9 @@ Player.prototype.syncOverlay = function (state) {
   if (!this.overlayEl) return;
   // Show whenever playback is not running (start, paused mid-cast, ended) so the
   // big glyph is the obvious "press play" affordance — not only at t = 0.
-  const show = state.status !== 'playing' && state.duration > 0;
+  // Declared-live is following the growing edge: no play overlay (that would invite
+  // play(), which drops live and replays from the top).
+  const show = !state.live && state.status !== 'playing' && state.duration > 0;
   this.overlayEl.hidden = !show;
 };
 
@@ -432,6 +449,13 @@ Player.prototype.renderBar = function (state) {
     this.playBtn.textContent = playing ? ICON_PAUSE : ICON_PLAY;
     this.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
     this.playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+  }
+  if (this.liveBtn) {
+    const live = !!state.live;
+    this.liveBtn.classList.toggle('on', live);
+    this.liveBtn.setAttribute('aria-pressed', live ? 'true' : 'false');
+    this.liveBtn.setAttribute('aria-label', live ? 'Live (following)' : 'Go live');
+    this.liveBtn.title = live ? 'following the live edge (seek back to leave)' : 'follow the live edge';
   }
   if (this.speedBtn) {
     this.speedBtn.textContent = String(state.speed).replace(/\.0$/, '') + '\u00d7';

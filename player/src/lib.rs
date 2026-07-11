@@ -42,13 +42,13 @@ mod tests {
     }
   }
 
-  /// The center play overlay must appear whenever playback is not running, and marker
-  /// jumps must seek without calling play (←→ / [ ] / chapter picks stay paused).
+  /// The center play overlay must appear whenever playback is not running (and not in
+  /// declared-live mode), and marker jumps must seek without calling play.
   #[test]
   fn overlay_and_marker_jumps_do_not_autoplay() {
     assert!(
-      PLAYER_JS.contains("state.status !== 'playing' && state.duration > 0"),
-      "overlay must show whenever not playing, not only at t = 0"
+      PLAYER_JS.contains("!state.live && state.status !== 'playing' && state.duration > 0"),
+      "overlay must show when not playing and not live, not only at t = 0"
     );
     assert!(!PLAYER_JS.contains("currentTime <= 1e-9 && state.duration"), "the t≈0-only overlay gate must stay gone");
     // jumpMarker used to end with play(origin); chapter rows did too.
@@ -65,6 +65,10 @@ mod tests {
       "monospace |> text glyph must stay gone"
     );
     assert!(!PLAYER_JS.contains("▄█"), "the block-character triangle glyph must stay gone");
+    assert!(
+      PLAYER_JS.contains("sp-live") && PLAYER_CSS.contains(".sp-live"),
+      "Live control lives in the player toolbar when controls.live is enabled"
+    );
   }
 
   /// `fit: 'both'` must never vertically scale against a content-sized mount: that path
