@@ -12,8 +12,13 @@ const Controller = root.BeeCastController;
 const SEEK_STEP_SECS = 5;
 const SPEEDS = Controller.SPEEDS;
 
-// Center play affordance: a large monospace `|>` — reads as play without a bitmap icon.
-const BIG_PLAY = '|&gt;';
+// Center play affordance: an inline SVG "|>" (bar + chevron, equal height) — crisp at any
+// size, no font metrics mismatch between `|` and `>`.
+const BIG_PLAY =
+  '<svg class="sp-bigplay-icon" viewBox="0 0 80 80" width="1em" height="1em" aria-hidden="true" focusable="false">' +
+  '<rect x="10" y="8" width="12" height="64" rx="2" fill="currentColor"/>' +
+  '<path d="M32 8 L70 40 L32 72 Z" fill="currentColor"/>' +
+  '</svg>';
 
 const ICON_PLAY = '▶';
 const ICON_PAUSE = '⏸';
@@ -638,7 +643,13 @@ Player.prototype.layout = function () {
         availH = this.root.clientHeight - barH;
         definite = true;
       } else if (wrapFs && this.fsEl) {
-        availH = this.fsEl.clientHeight - barH;
+        // Prefer the mount (.cast-player) height: the fullscreen host may also include a
+        // page toolbar above the player (scsh). Measuring fsEl and only subtracting our
+        // own bar over-stated availH, then a later ResizeObserver tick corrected it —
+        // the visible "grows after a second and clips 1×" jump.
+        const mount = this.root.parentNode;
+        const hostH = (mount && mount.clientHeight > 0) ? mount.clientHeight : this.fsEl.clientHeight;
+        availH = hostH - barH;
         definite = true;
       } else if (this.root.parentNode) {
         const mount = this.root.parentNode;

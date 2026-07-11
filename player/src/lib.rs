@@ -56,7 +56,14 @@ mod tests {
       !PLAYER_JS.contains("this.play(origin || 'marker')") && !PLAYER_JS.contains("self.play('marker')"),
       "marker/chapter navigation must not force play"
     );
-    assert!(PLAYER_JS.contains("'|&gt;'") || PLAYER_JS.contains("\"|&gt;\""), "play overlay is a large monospace |>");
+    assert!(
+      PLAYER_JS.contains("sp-bigplay-icon") && PLAYER_JS.contains("viewBox=\"0 0 80 80\""),
+      "play overlay must be an equal-height SVG |> (bar + chevron), not monospace text"
+    );
+    assert!(
+      !PLAYER_JS.contains("'|&gt;'") && !PLAYER_JS.contains("\"|&gt;\""),
+      "monospace |> text glyph must stay gone"
+    );
     assert!(!PLAYER_JS.contains("▄█"), "the block-character triangle glyph must stay gone");
   }
 
@@ -76,6 +83,10 @@ mod tests {
     assert!(
       !PLAYER_JS.contains("availH - 4"),
       "the availH-4 trigger forced another shrink on every ResizeObserver tick"
+    );
+    assert!(
+      PLAYER_JS.contains("mount && mount.clientHeight > 0") && PLAYER_JS.contains("wrapFs"),
+      "wrap-fullscreen layout must prefer the mount height over the outer fullscreen host"
     );
   }
 
