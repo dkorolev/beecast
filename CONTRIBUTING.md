@@ -1,5 +1,7 @@
 # Contributing
 
+The house rules live in [`dkorolev/principles`](https://github.com/dkorolev/principles) — [`ENG-PRINCIPLES.md`](https://github.com/dkorolev/principles/blob/main/ENG-PRINCIPLES.md) for how everything here is built (typing, CLI, testing, git, publishing), [`WEB-UI-PRINCIPLES.md`](https://github.com/dkorolev/principles/blob/main/WEB-UI-PRINCIPLES.md) for the generated player page. Linked, not copied: that repo is the one source of truth. Deliberate waivers are noted at the end of this file.
+
 A Cargo workspace with five parts: the [`beecast-dto`](dto) crate (`dto/` — the cast-metadata DTO and the source of truth for the schema), the [`beecast-player`](player) crate (`player/` — the first-party clean-room player and VT emulator as inlinable JS/CSS constants), the [`beecast-page`](page) crate (`page/` — the page pipeline: cast inspection and the HTML renderer, embedding the player crate), the [`beecast`](cli) CLI crate (`cli/` — argument parsing and I/O, depends on the rest), and the Python `seecast` annotator (`seecast/`). The version is shared once, in the root `[workspace.package]`. Crates publish in dependency order — see [`PUBLISHING.md`](PUBLISHING.md).
 
 `dto/schema/beecast-meta.schema.json` is *generated* from the Rust types in `dto/src/lib.rs` (the source of truth) — regenerate with `cargo run -p beecast -q -- schema > dto/schema/beecast-meta.schema.json`; a unit test in `beecast-dto` pins the shipped file byte-for-byte, and a Python test cross-checks the facts `validate_meta` mirrors, so drift dies in the gate.
