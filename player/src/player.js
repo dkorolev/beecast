@@ -355,7 +355,6 @@ Player.prototype.buildDom = function (mount, cfg) {
 
   mount.appendChild(root);
   this.root = root;
-  this.stageEl = root.querySelector('.sp-stage');
   this.screenEl = root.querySelector('.sp-screen');
   this.a11yEl = root.querySelector('.sp-a11y');
   this.playBtn = root.querySelector('.sp-play');
@@ -372,8 +371,6 @@ Player.prototype.buildDom = function (mount, cfg) {
   this.overlayEl = root.querySelector('.sp-overlay');
   this.marksEl = root.querySelector('.sp-markers');
   this.toastEl = root.querySelector('.sp-toast');
-  this._chaptersUserClosed = false;
-  this._chaptersAutoOpened = false;
 
   if (this.playBtn) {
     this.playBtn.addEventListener('click', function () { self.toggle('pointer'); });
@@ -516,13 +513,12 @@ Player.prototype.hasChapters = function () {
   return !!(markers && markers.length);
 };
 
-Player.prototype.toggleChapters = function (force, opts) {
+Player.prototype.toggleChapters = function (force) {
   if (!this.chaptersEl) return;
   // A missing chapter set is not an empty menu. Keyboard `c` and the public toggle are
   // genuine no-ops until markers exist; an explicit close remains allowed so a live
   // player can retract a panel if an updated metadata document removes its chapters.
   if (!this.hasChapters() && force !== false) return;
-  opts = opts || {};
   // Explicit toggle: open when hidden, close when visible — `c` must close as well as open.
   const show = force != null ? !!force : !!this.chaptersEl.hidden;
   // Focus must be checked BEFORE hiding: hiding the focused row silently moves
@@ -534,23 +530,10 @@ Player.prototype.toggleChapters = function (force, opts) {
   if (show) {
     this._chaptersRenderKey = null;
     this.renderChapters(this.controller.getState());
-    if (opts.auto) this._chaptersAutoOpened = true;
-    else {
-      this._chaptersUserClosed = false;
-      this._chaptersAutoOpened = false;
-    }
-    if (!opts.silent) {
-      const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
-      if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
-    }
-  } else {
-    if (!opts.auto) {
-      this._chaptersUserClosed = true;
-      this._chaptersAutoOpened = false;
-    }
-    if (hadFocus && this.chapBtn) {
-      try { this.chapBtn.focus({ preventScroll: true }); } catch (_) {}
-    }
+    const current = this.chaptersEl.querySelector('.sp-chap-on') || this.chaptersEl.querySelector('.sp-chap');
+    if (current) try { current.focus({ preventScroll: true }); } catch (_) { current.focus(); }
+  } else if (hadFocus && this.chapBtn) {
+    try { this.chapBtn.focus({ preventScroll: true }); } catch (_) {}
   }
   // The chapter panel is an absolute overlay. Toggling it must never relayout or rescale
   // the terminal, especially in fullscreen.
@@ -645,14 +628,8 @@ Player.prototype.markCurrentChapter = function (state) {
   }
 };
 
-Player.prototype.syncChaptersLayout = function () {
-  if (!this.root || !this.chaptersEl) return;
-  this.root.classList.remove('sp-chapters-dock');
-};
-
 Player.prototype.syncChaptersUi = function (state) {
   if (this.chapBtn) this.chapBtn.hidden = !(state.markers && state.markers.length);
-  this.syncChaptersLayout();
   if (!this.chaptersEl || this.chaptersEl.hidden) return;
   // Rebuilding the list on every playback tick destroys the buttons mid-click — only
   // rebuild when the marker set changes; otherwise refresh the current-chapter highlight.
@@ -788,7 +765,6 @@ Player.prototype.layout = function () {
   if (!this.fit || !this.root || this._layouting) return;
   this._layouting = true;
   try {
-    this.syncChaptersLayout();
     const box = this.root.querySelector('.sp-screen-box');
     if (!box || !this.screenEl) return;
     this.screenEl.style.transform = '';
@@ -812,18 +788,12 @@ Player.prototype.layout = function () {
     // A fullscreen host page can let max-content children blow the pane out sideways
     // (e.g. a grid wrapper without minmax(0,1fr)): the box then measures wider than the
     // screen itself and no horizontal scale is applied. In fullscreen nothing may budget
-    // wider than the fullscreen element, minus a visible docked chapter panel.
+    // wider than the fullscreen element.
     const fsHost = rootFs ? this.root : (wrapFs ? this.fsEl : null);
     let fsCap = 0;
-    if (fsHost && fsHost.clientWidth > 0) {
-      let cap = fsHost.clientWidth;
-      if (this.root.classList.contains('sp-chapters-dock') && this.chaptersEl && !this.chaptersEl.hidden) {
-        cap -= this.chaptersEl.offsetWidth;
-      }
-      if (cap > 40) {
-        fsCap = cap;
-        availW = availW > 0 ? Math.min(availW, cap) : cap;
-      }
+    if (fsHost && fsHost.clientWidth > 40) {
+      fsCap = fsHost.clientWidth;
+      availW = availW > 0 ? Math.min(availW, fsCap) : fsCap;
     }
     let scale = availW > 0 && naturalW > availW ? availW / naturalW : 1;
 
@@ -849,12 +819,6 @@ Player.prototype.layout = function () {
         const mount = this.root.parentNode;
         definite = this.mountHeightIsDefinite(mount, box);
         if (definite) availH = mount.clientHeight - barH;
-      }
-      // Docked chapters sit beside the terminal inside the stage; the height budget is
-      // the stage (root minus bar), same as fullscreen.
-      if (definite && this.root.classList.contains('sp-chapters-dock') && this.stageEl) {
-        const stageH = this.stageEl.clientHeight;
-        if (stageH > 40) availH = stageH;
       }
       if (definite && availH > 40 && naturalH * scale > availH) {
         scale = Math.min(scale, availH / naturalH);

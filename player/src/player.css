@@ -252,7 +252,6 @@
    device pixel. Extend only background-painted runs downward by a subpixel so a
    logically solid terminal background remains visually solid. */
 .sp-screen .sp-bg { box-shadow: 0 0.75px 0 var(--sp-run-bg); }
-.sp-probe { visibility: hidden; position: absolute; }
 .sp-b { font-weight: 700; }
 .sp-d { opacity: 0.6; }
 .sp-i { font-style: italic; }
