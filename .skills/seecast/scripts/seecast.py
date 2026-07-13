@@ -8,7 +8,7 @@ and writes the sidecar next to the recording: demo.cast -> demo.meta.json.
 
 Stdlib-only and single-file on purpose: this exact file is what the scsh skill bundles,
 so it must run anywhere python3 exists. Tested by seecast/tests/test_seecast.py
-(transcript, v2/v3 timing, ANSI stripping, validation, the annotate flow with a stubbed
+(transcript, v1/v2/v3 timing, ANSI stripping, validation, the annotate flow with a stubbed
 model, and the CLI contract); the cursor-agent path is exercised for real by running it
 on an actual recording.
 
@@ -34,7 +34,7 @@ import sys
 import tempfile
 import time
 
-VERSION = "0.1.0"  # what build is this? -- answerable offline, always
+VERSION = "0.2.0"  # what build is this? -- answerable offline, always
 DEFAULT_MODEL = "composer-2.5-fast"  # Composer Fast: quick and cheap, plenty for titling.
 DEFAULT_TIMEOUT = 180  # seconds; annotation is a known-fast job, well under the 5-min default cap
 LIVENESS_PERIOD = 10  # seconds between "still waiting" ticks on stderr
@@ -74,9 +74,10 @@ def strip_ansi(s):
 
 
 def iter_output_events(cast_ndjson):
-    """Yield (absolute_seconds, text) for each `o` event of an asciicast v2 or v3 NDJSON
-    recording. v2 stamps are absolute; v3 stamps are intervals since the previous event
-    and get accumulated. Unparseable lines (e.g. a truncated live tail) are skipped."""
+    """Yield (absolute_seconds, text) for each output event of an asciicast v1, v2, or v3
+    recording. A v1 recording is one JSON document whose `stdout` pairs carry intervals;
+    v2 stamps are absolute; v3 stamps are intervals since the previous event. Intervals
+    get accumulated. Unparseable lines (e.g. a truncated live tail) are skipped."""
     lines = cast_ndjson.splitlines()
     # The header is the first non-empty line, exactly like the Rust parser (cast.rs) — a
     # recording beecast can play must never be one seecast refuses to annotate. An empty
@@ -86,11 +87,31 @@ def iter_output_events(cast_ndjson):
         raise ValueError("not an asciicast: the file is empty")
     try:
         header = json.loads(lines[header_index])
+    except ValueError:
+        # A v1 recording may be one pretty-printed JSON document spanning many lines: when
+        # the first line does not parse on its own, the whole file gets one more chance —
+        # exactly like the Rust parser (cast.rs).
+        try:
+            header = json.loads(cast_ndjson)
+        except ValueError:
+            raise ValueError("not an asciicast: the first line is not a JSON header")
+    try:
         version = int(header.get("version", 0))
     except (ValueError, TypeError, AttributeError):
         raise ValueError("not an asciicast: the first line is not a JSON header")
+    if version == 1:
+        # v1 carries its events inside the header document itself: `stdout` pairs of
+        # [interval_seconds, text], mirroring the player's own parseCast (vt.js).
+        clock = 0.0
+        for pair in header.get("stdout") or []:
+            if not (isinstance(pair, list) and len(pair) >= 2 and isinstance(pair[0], (int, float))):
+                continue
+            clock += float(pair[0])
+            if isinstance(pair[1], str):
+                yield clock, pair[1]
+        return
     if version not in (2, 3):
-        raise ValueError("asciicast v%s is not supported (v2 and v3 are)" % version)
+        raise ValueError("asciicast v%s is not supported (v1, v2, and v3 are)" % version)
     clock = 0.0
     for line in lines[header_index + 1 :]:
         line = line.strip()
@@ -390,7 +411,7 @@ def main(argv=None):
         epilog="`seecast help exitcodes` prints the exit-code table. When stdout is not a "
         "TTY, results are single-key JSON documents (see dto/SCHEMA.md and the module docstring).",
     )
-    parser.add_argument("cast", nargs="?", help="the .cast recording (asciicast v2 or v3)")
+    parser.add_argument("cast", nargs="?", help="the .cast recording (asciicast v1, v2, or v3)")
     parser.add_argument("--version", action="store_true", help="print the version and exit (works offline)")
     parser.add_argument(
         "--json", action="store_true", help="machine output (single-key JSON); the default when stdout is not a TTY"

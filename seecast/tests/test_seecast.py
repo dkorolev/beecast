@@ -1,6 +1,6 @@
-"""Unit tests for the seecast annotator: transcript rendering (v2 absolute vs v3 relative
-timestamps), ANSI stripping, schema validation, the annotate flow with a stubbed model,
-and the CLI contract (single-key JSON documents, exit codes, signal discipline).
+"""Unit tests for the seecast annotator: transcript rendering (v1/v3 relative vs v2
+absolute timestamps), ANSI stripping, schema validation, the annotate flow with a stubbed
+model, and the CLI contract (single-key JSON documents, exit codes, signal discipline).
 Run from the repo root with: python3 -m unittest discover -s seecast/tests"""
 
 import contextlib
@@ -71,11 +71,34 @@ class Transcript(unittest.TestCase):
         t = seecast.transcript(V3 + '[1.0,"o","tru')
         self.assertIn("[65.0s] done", t)
 
+    def test_v1_accumulates_stdout_intervals(self):
+        cast = '{"version":1,"width":80,"height":24,"stdout":[[0.5,"hello\\r\\n"],[1.0,"world\\r\\n"]]}'
+        t = seecast.transcript(cast)
+        self.assertIn("[0.5s] hello", t)
+        self.assertIn("[1.5s] world", t)  # 0.5 + 1.0 — v1 delays are intervals, like v3
+
+    def test_v1_pretty_printed_document_is_accepted(self):
+        # A v1 recording may span many lines; the first line alone (`{`) is not JSON, so
+        # the whole document gets a second chance — exactly like the Rust parser (cast.rs).
+        cast = (
+            '{\n  "version": 1,\n  "width": 80,\n  "height": 24,\n'
+            '  "stdout": [[0.5, "hello\\r\\n"], [1.0, "world\\r\\n"]]\n}'
+        )
+        t = seecast.transcript(cast)
+        self.assertIn("[0.5s] hello", t)
+        self.assertIn("[1.5s] world", t)
+
+    def test_v1_with_no_output_is_an_empty_transcript_not_an_error(self):
+        # beecast builds a page from it, so seecast must accept it; `annotate` then fails
+        # with "no visible output", the same as an all-silence v2/v3 recording.
+        self.assertEqual(seecast.transcript('{"version":1,"stdout":[]}\n'), "")
+        self.assertEqual(seecast.transcript('{"version":1,"width":80,"height":24}\n'), "")
+
     def test_rejects_non_asciicast(self):
         with self.assertRaises(ValueError):
             seecast.transcript("hello world\n")
         with self.assertRaises(ValueError):
-            seecast.transcript('{"version":1,"stdout":[]}\n')
+            seecast.transcript('{"no_version":true}\n')
 
     def test_empty_file_is_not_an_asciicast(self):
         # beecast exits 1 on an empty .cast; a silent empty transcript would diverge.

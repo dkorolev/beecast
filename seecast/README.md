@@ -43,7 +43,7 @@ Install it as a command — single-file and stdlib-only means a symlink (or a co
 ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast     # from the repo root
 ```
 
-- Reads asciicast **v2 and v3** (v3 event times are relative and get accumulated).
+- Reads asciicast **v1, v2, and v3** — everything beecast plays, seecast annotates. v1 `stdout` pairs and v3 event times are relative and get accumulated; v2 stamps are absolute.
 - Renders the recording into a compact, timestamped, ANSI-stripped transcript, deduplicated and downsampled — TUI redraws don't flood the prompt.
 - Calls `cursor-agent -p` headless; a hard watchdog kills a hung call (default 180 s) and retries it once — a warning that lands on stderr *and* in the machine document's `warnings` array, since cursor-agent occasionally stalls on startup — and liveness ticks go to stderr every ~10 s so callers can tell it's alive.
 - Writes the validated sidecar atomically next to the recording (`demo.cast` → `demo.meta.json`): the previous complete sidecar remains in place until a flushed temporary file is ready to replace it.
@@ -55,7 +55,7 @@ ln -s "$(pwd)/seecast/seecast" ~/.local/bin/seecast     # from the repo root
 
 | Absent on purpose               | Where that job IS done                                 |
 | ------------------------------- | ------------------------------------------------------ |
-| Recording a terminal session    | `asciinema rec` (or any asciicast v2/v3 producer)      |
+| Recording a terminal session    | `asciinema rec` (or any asciicast v1/v2/v3 producer)   |
 | Rendering the player page       | [beecast](../README.md), this repo's Rust renderer     |
 | Hand-editing a sidecar          | Any editor — then `./seecast --validate` checks it     |
 | Hosting the annotation model    | `cursor-agent` (Cursor CLI) with its own credentials   |
@@ -73,7 +73,7 @@ The skill requires `CAST` (the repo-relative path of the recording) and writes t
 
 ## Testing
 
-`python3 -m unittest discover -s seecast/tests` (from the repo root) — transcript rendering, v2/v3 time handling, ANSI stripping, reply validation, and the CLI contract are covered with a stubbed model; the cursor-agent path is exercised for real by running the script on an actual recording.
+`python3 -m unittest discover -s seecast/tests` (from the repo root) — transcript rendering, v1/v2/v3 time handling, ANSI stripping, reply validation, and the CLI contract are covered with a stubbed model; the cursor-agent path is exercised for real by running the script on an actual recording.
 
 ## License
 
