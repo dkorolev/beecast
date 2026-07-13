@@ -119,6 +119,23 @@ test.describe('human-facing behavior', () => {
     expect(value).toBeGreaterThan(max * 0.5);
   });
 
+  test('a ?t=…&note=… deep link parks the player and shows the note banner', async ({ page }) => {
+    // Deep links are query parameters precisely so they work from a file:// path — the
+    // riskier transport is the one under test. (Was a manual pre-release check.)
+    await page.goto(fileUrl() + '?t=1&note=hi');
+    // Parked at the linked timestamp: paused (poster frame, play overlay up), not playing.
+    await expect(page.locator('.sp-play')).toHaveAttribute('aria-label', 'Play');
+    await expect(page.locator('.sp-overlay')).toBeVisible();
+    expect(Number(await page.locator('.sp-seek').getAttribute('aria-valuenow'))).toBe(1);
+    // The note banner names the moment and carries the comment.
+    const banner = page.locator('#note-banner');
+    await expect(banner).toBeVisible();
+    await expect(banner.locator('.at')).toHaveText('@0:01');
+    await expect(banner).toContainText('hi');
+    // The comment is pre-filled so re-sharing keeps it.
+    await expect(page.locator('#note')).toHaveValue('hi');
+  });
+
   test('chapter navigation creates and restores a focused history entry', async ({ page }) => {
     // Chapters are always an opt-in overlay.
     await page.setViewportSize({ width: 520, height: 700 });
