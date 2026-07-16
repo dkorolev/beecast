@@ -329,6 +329,22 @@ assert.ok(Math.abs(ctrl.getCurrentTime() - 1.5) < 1e-9);
 ctrl.seek(0);
 assert.ok(ctrl.getCurrentTime() < 1e-9);
 
+// Long recordings keep real time after a seek unless the embedder explicitly opts into
+// idle compression. A page-level default must not turn a sparse 20-minute interval into
+// an uncontrollable two-second sprint.
+const longClock = fakeClock();
+const longCtrl = C.create({
+  data: '{"version":3,"term":{"cols":4,"rows":1}}\n[0,"o","a"]\n[1200,"o","b"]\n',
+  clock: longClock,
+});
+longCtrl.seek(600);
+longCtrl.play();
+longClock.flush(0);
+longClock.flush(1000);
+assert.ok(Math.abs(longCtrl.getCurrentTime() - 601) < 1e-9);
+assert.strictEqual(longCtrl.getState().status, 'playing');
+longCtrl.dispose();
+
 // toggle
 ctrl.toggle();
 assert.strictEqual(ctrl.getState().status, 'playing');

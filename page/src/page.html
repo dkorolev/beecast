@@ -109,7 +109,7 @@ const META = @@BEECAST_META_JSON@@;
 
   // One player owns play/pause/seek/speed/chapters/fullscreen. Speed changes call
   // setSpeed() in place — no remount, so focus and subscriptions survive.
-  const opts = { fit: 'both', markers: MARKERS, speed: 1, idleTimeLimit: 2 };
+  const opts = { fit: 'both', markers: MARKERS, speed: 1 };
   if (linkT != null && linkT > 0) opts.startAt = linkT;
   const player = BeeCastPlayer.create({ data: CAST_DATA }, $('player'), opts);
   try {

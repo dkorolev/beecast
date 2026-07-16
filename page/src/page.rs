@@ -135,6 +135,11 @@ mod tests {
   }
 
   #[test]
+  fn generated_page_defaults_to_realtime_playback() {
+    assert!(!TEMPLATE.contains("idleTimeLimit"), "generated pages must not compress recording time by default");
+  }
+
+  #[test]
   fn page_respects_title_summary_and_chapters() {
     let page = build_page("{\"version\":2,\"width\":80,\"height\":24}\n", &demo_meta(), "demo.cast");
     assert!(page.contains("<title>Demo &lt;run&gt;</title>"), "title, escaped");

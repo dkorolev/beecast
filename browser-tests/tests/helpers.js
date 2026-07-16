@@ -6,10 +6,16 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const PAGE = path.join(__dirname, '..', '.artifacts', 'sample.html');
+const LONG_PAGE = path.join(__dirname, '..', '.artifacts', 'long-sparse.html');
 
 /** The built page as a file:// URL — Playwright navigates it directly. */
 function fileUrl() {
   return pathToFileURL(PAGE).href;
+}
+
+/** The sparse 20-minute regression fixture as a file:// URL. */
+function longFileUrl() {
+  return pathToFileURL(LONG_PAGE).href;
 }
 
 /** A throwaway HTTP server for the built page; returns { url, close }. */
@@ -77,4 +83,4 @@ async function exercisePlayer(page) {
   await page.locator('.sp-speedmenu').waitFor({ state: 'hidden' });
 }
 
-module.exports = { fileUrl, startServer, collectConsoleViolations, exercisePlayer };
+module.exports = { fileUrl, longFileUrl, startServer, collectConsoleViolations, exercisePlayer };

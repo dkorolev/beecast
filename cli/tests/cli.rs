@@ -255,7 +255,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// the template or player changes *intentionally*, re-pin using the lengths and fingerprints
 /// this assertion prints. The footer's workspace version is normalized so a manifest-only
 /// release commit does not require an unrelated fingerprint change. Finally, empty chapter
-/// sets stopped advertising or responding to the `c` menu toggle.
+/// sets stopped advertising or responding to the `c` menu toggle, and generated pages stopped
+/// forcing two-second idle compression so long sparse recordings play in real time by default.
 #[test]
 fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
   let dir = tempdir("pin");
@@ -272,7 +273,7 @@ fn generated_page_is_byte_identical_to_the_serde_era_renderer() {
     .replace(env!("CARGO_PKG_VERSION"), "<version>")
     .into_bytes();
   let got = (with_meta.len(), fnv1a(&with_meta), bare.len(), fnv1a(&bare));
-  assert_eq!(got, (112950, 0x75947e03bde404f5, 112740, 0xf337d22b825f5498), "the generated page's bytes moved");
+  assert_eq!(got, (112932, 0xd8ce02e9cad7dba3, 112722, 0x4ce4029a489e9152), "the generated page's bytes moved");
 }
 
 /// `beecast schema` is the codegen script (§1): its output must be exactly the schema file

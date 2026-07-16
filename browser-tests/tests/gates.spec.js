@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { fileUrl, startServer, collectConsoleViolations, exercisePlayer } = require('./helpers');
+const { fileUrl, longFileUrl, startServer, collectConsoleViolations, exercisePlayer } = require('./helpers');
 
 // The two hard gates, each asserted over both required transports: the generated page
 // must work from a plain double-clicked file AND from a web server, making zero network
@@ -50,6 +50,18 @@ for (const transport of ['file', 'http']) {
 }
 
 test.describe('human-facing behavior', () => {
+  test('a long sparse recording keeps real time after a seek', async ({ page }) => {
+    await page.goto(longFileUrl() + '?t=600');
+    const play = page.locator('.sp-play');
+    const seek = page.locator('.sp-seek');
+    await play.click();
+    await page.waitForTimeout(1100);
+    await expect(play).toHaveAttribute('aria-label', 'Pause');
+    const current = Number(await seek.getAttribute('aria-valuenow'));
+    expect(current).toBeGreaterThanOrEqual(600);
+    expect(current).toBeLessThanOrEqual(602);
+  });
+
   test('adjacent terminal background runs paint without horizontal seams', async ({ page }) => {
     await page.goto(fileUrl());
     const geometry = await page.evaluate(() => {
