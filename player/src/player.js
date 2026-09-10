@@ -192,6 +192,17 @@ function Player(src, mount, opts) {
   if (typeof document !== 'undefined') {
     document.addEventListener('fullscreenchange', this.fsHandler);
   }
+  // Chrome on macOS grows the viewport in an animation AFTER `fullscreenchange`, and the
+  // observed mount keeps its inline size while the root is fullscreen, so the layout done
+  // at the event's intermediate size stuck: a terminal scaled for a narrower screen,
+  // pinned to the left of the final one. Viewport resizes in fullscreen re-lay out.
+  this.resizeHandler = function () {
+    const fs = typeof document !== 'undefined' ? document.fullscreenElement : null;
+    if (fs === self.root || !!(self.fsEl && fs === self.fsEl)) self.layout();
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', this.resizeHandler);
+  }
 }
 
 Player.prototype.bindController = function () {
@@ -954,6 +965,10 @@ Player.prototype.dispose = function () {
   if (this.fsHandler) {
     try { document.removeEventListener('fullscreenchange', this.fsHandler); } catch (_) {}
     this.fsHandler = null;
+  }
+  if (this.resizeHandler) {
+    try { window.removeEventListener('resize', this.resizeHandler); } catch (_) {}
+    this.resizeHandler = null;
   }
   if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);
   this.root = null;
