@@ -823,11 +823,17 @@ Player.prototype.layout = function () {
       if (definite && availH > 40 && naturalH * scale > availH) {
         scale = Math.min(scale, availH / naturalH);
       }
+      // Fullscreen exists to watch the recording, so a terminal smaller than the screen
+      // grows to fill it: the tighter axis wins, the other centers. Inline embeds keep
+      // their natural size — an enlarged terminal there would overflow the page column.
+      if ((rootFs || wrapFs) && definite && availH > 40 && availW > 0) {
+        scale = Math.min(availW / naturalW, availH / naturalH);
+      }
     }
 
     const displayH = naturalH * scale;
     const displayW = naturalW * scale;
-    const transform = scale < 1 ? 'scale(' + scale + ')' : '';
+    const transform = scale !== 1 ? 'scale(' + scale + ')' : '';
     const height = displayH + 'px';
     // Center within the VISIBLE pane: on a host that lets the pane overflow the
     // fullscreen element, box.clientWidth is a lie and would center off-screen.
